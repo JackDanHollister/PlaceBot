@@ -1,8 +1,8 @@
 # 🌍 PlaceBot - Multi-Vendor AI Locality Processor
 
-> **Production-ready system for extracting geographic coordinates from locality descriptions using 12 AI models across 4 vendors**
+PlaceBot is a lightweight tool designed to convert verbatim locality descriptions—such as those found on natural history specimen labels—into standardised geographic coordinates (latitude and longitude). It uses modern natural language processing (NLP) and large language model (LLM) techniques to interpret descriptive place names, estimate coordinates, and assess confidence levels.
 
-PlaceBot uses state-of-the-art AI models from Anthropic (Claude), OpenAI (GPT), Google (Gemini), and local Qwen models to intelligently parse natural language locality descriptions and extract precise geographic coordinates.
+This tool is intended to support digitisation, curation, and research workflows by automating a key step in georeferencing legacy specimen data.
 
 ## ✨ Key Features
 
@@ -209,15 +209,7 @@ pytest tests/
 pytest --cov=placebot tests/
 ```
 
-### Contributing
 
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 
 ## 📈 Performance Metrics
@@ -298,28 +290,7 @@ If you use PlaceBot in your research, please cite:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
 
-- Built with [Anthropic Claude](https://www.anthropic.com/)
-- Powered by [OpenAI GPT](https://openai.com/)
-- Enhanced with [Google Gemini](https://deepmind.google/technologies/gemini/)
-- Local processing with [Qwen Models](https://github.com/QwenLM/Qwen)
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/JackDanHollister/PlaceBot/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/JackDanHollister/PlaceBot/discussions)
-- **Email**: jack.d.hollister@gmail.com
-
-## 🗺️ Roadmap
-
-- [ ] Web interface for browser-based processing
-- [ ] Additional model vendors (Cohere, Mistral)
-- [ ] Real-time coordinate validation against geographic databases
-- [ ] Confidence scoring and uncertainty quantification
-- [ ] Fine-tuning support for domain-specific localities
-- [ ] Docker container for easy deployment
-- [ ] REST API for integration with other systems
 
 ---
 
