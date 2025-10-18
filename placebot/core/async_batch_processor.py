@@ -676,7 +676,7 @@ class GeminiBatchProcessor:
             if isinstance(batch_input, list):
                 # Create temporary JSONL file from request list
                 print(f"   📝 Converting {len(batch_input)} requests to JSONL...")
-                temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False)
+                temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False, encoding='utf-8')
                 
                 for request in batch_input:
                     # Convert to proper Gemini batch format
@@ -991,7 +991,7 @@ class GeminiBatchProcessor:
             if isinstance(batch_input, list):
                 # Create temporary JSONL file from request list
                 print(f"   📝 Converting {len(batch_input)} requests to JSONL...")
-                temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False)
+                temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False, encoding='utf-8')
                 
                 for request in batch_input:
                     # Convert to proper Gemini batch format
