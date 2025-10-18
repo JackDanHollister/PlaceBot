@@ -6,8 +6,8 @@ Batch Status Checker
 Check the status of async batch processing jobs.
 
 Usage:
-    python3 -m placebot.cli.batch_status <batch_id>
-    python3 -m placebot.cli.batch_status --list
+    python -m placebot.cli.batch_status <batch_id>
+    python -m placebot.cli.batch_status --list
 """
 
 import sys

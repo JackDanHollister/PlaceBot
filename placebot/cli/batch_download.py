@@ -6,7 +6,7 @@ Batch Results Downloader
 Download and process results from completed batch jobs.
 
 Usage:
-    python3 -m placebot.cli.batch_download <batch_id>
+    python -m placebot.cli.batch_download <batch_id>
 """
 
 import sys

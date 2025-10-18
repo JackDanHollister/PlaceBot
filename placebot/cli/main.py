@@ -324,9 +324,9 @@ def run_interactive_mode(args):
                 print(f"   📝 Total records: {sum(b['record_count'] for b in batch_info_list)}/{total_records}")
                 print(f"   💾 Summary saved: {summary_file}")
                 print(f"\n🔍 Check status of all batches:")
-                print(f"   python3 -m placebot.cli.batch_status_staggered {summary_file}")
+                print(f"   python -m placebot.cli.batch_status_staggered {summary_file}")
                 print(f"\n📥 Download and merge results when complete:")
-                print(f"   python3 -m placebot.cli.batch_download_staggered {summary_file}")
+                print(f"   python -m placebot.cli.batch_download_staggered {summary_file}")
                 print(f"\n💡 Each batch will complete independently within 24 hours")
                 
                 return 0
@@ -372,7 +372,7 @@ def run_interactive_mode(args):
             print(f"   💾 Info saved: {batch_info_file}")
             print(f"\n⏳ Processing will complete within 24 hours (usually much faster)")
             print(f"\n📊 To check status later:")
-            print(f"   python3 -m placebot.cli.batch_status {batch_id}")
+            print(f"   python -m placebot.cli.batch_status {batch_id}")
             print(f"\n💡 Results will be downloaded automatically when ready")
             
             return 0
