@@ -49,13 +49,32 @@ def load_model_profile(model_file: str) -> Optional[Dict[str, Any]]:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         
+        # Import config to get API keys from .env file
+        from placebot.core.config import get_config
+        config = get_config()
+        
+        # Get provider and determine which API key to use
+        provider = getattr(module, 'MODEL_PROVIDER', 'Unknown').lower()
+        
+        # Get API key from .env file first, fall back to hardcoded value
+        env_api_key = None
+        if 'anthropic' in provider or 'claude' in provider:
+            env_api_key = config.get_api_key('anthropic')
+        elif 'openai' in provider or 'gpt' in provider:
+            env_api_key = config.get_api_key('openai')
+        elif 'google' in provider or 'gemini' in provider:
+            env_api_key = config.get_api_key('google')
+        
+        # Use environment API key if available, otherwise use hardcoded value from model file
+        api_key = env_api_key if env_api_key else getattr(module, 'API_KEY', '')
+        
         # Extract model information
         profile = {
             'name': getattr(module, 'MODEL_NAME', model_file),
             'provider': getattr(module, 'MODEL_PROVIDER', 'Unknown'),
             'model_id': getattr(module, 'MODEL_ID', ''),
             'api_endpoint': getattr(module, 'API_ENDPOINT', ''),
-            'api_key': getattr(module, 'API_KEY', ''),
+            'api_key': api_key,
             'cost_per_1k_input': getattr(module, 'COST_PER_1K_INPUT_TOKENS', 0),
             'cost_per_1k_output': getattr(module, 'COST_PER_1K_OUTPUT_TOKENS', 0),
             'estimated_cost_per_record': getattr(module, 'ESTIMATED_COST_PER_RECORD', 0),

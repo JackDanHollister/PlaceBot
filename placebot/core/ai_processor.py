@@ -688,11 +688,15 @@ Respond with JSON only."""
                 
                 if response.status_code == 200:
                     return {'success': True, 'data': response.json()}
-                elif (response.status_code == 429 or response.status_code == 529) and attempt < max_retries:
-                    # Handle both rate limits (429) and overloaded (529) errors
-                    if response.status_code == 529:
+                elif (response.status_code == 429 or response.status_code == 500 or response.status_code == 529) and attempt < max_retries:
+                    # Handle rate limits (429), internal errors (500), and overloaded (529) errors
+                    if response.status_code == 500:
+                        # Internal server error - retry with exponential backoff
+                        wait_time = (2 ** attempt) * 4
+                        error_type = "Internal server error (500)"
+                    elif response.status_code == 529:
                         # Server overloaded - longer wait times
-                        wait_time = (2 ** attempt) * 5  # More aggressive wait for overloaded servers
+                        wait_time = (2 ** attempt) * 5
                         error_type = "Server overloaded"
                     else:
                         # Rate limit - standard wait
