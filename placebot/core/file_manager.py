@@ -259,7 +259,7 @@ class OutputManager:
             # Define desired column order
             desired_order = [
                 'Barcode', 'Locality verbatim', 'Country', 'Country_Processed', 
-                'Region', 'Sector', 'State', 'Exact_Site', 'Elevation', 
+                'State', 'Region', 'Sector', 'Exact_Site', 'Elevation', 
                 'Elevation_Original', 'Latitude', 'Longitude', 
                 'Coordinate_Radius_Meters', 'Coordinate_Source', 
                 'Confidence', 'Processing_Notes'
