@@ -182,8 +182,8 @@ def download_job(batch_id, batch_dir='./output/batch_jobs'):
         
         # Save results
         output_file = f"./output/{job_info['batch_name']}_results.json"
-        with open(output_file, 'w') as f:
-            json.dump(results, f, indent=2)
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
         
         success_count = sum(1 for r in results if r.get('success'))
         print(f"✅ Downloaded {len(results)} results ({success_count} successful)")

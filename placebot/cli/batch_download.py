@@ -101,8 +101,8 @@ def download_batch_results(batch_id, batch_dir='./output/batch_jobs'):
         os.makedirs(output_dir, exist_ok=True)
         
         results_file = os.path.join(output_dir, f"{info['batch_name']}_results.json")
-        with open(results_file, 'w') as f:
-            json.dump(results, f, indent=2)
+        with open(results_file, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
         
         print(f"[INFO] Results saved to: {results_file}")
         print(f"\n[SUCCESS] Download complete!")

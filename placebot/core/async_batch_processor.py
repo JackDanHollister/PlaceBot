@@ -692,7 +692,7 @@ class GeminiBatchProcessor:
                             }
                         }
                     }
-                    temp_file.write(json.dumps(jsonl_entry) + '\n')
+                    temp_file.write(json.dumps(jsonl_entry, ensure_ascii=False) + '\n')
                 
                 temp_file.close()
                 batch_file_path = temp_file.name
@@ -1007,7 +1007,7 @@ class GeminiBatchProcessor:
                             }
                         }
                     }
-                    temp_file.write(json.dumps(jsonl_entry) + '\n')
+                    temp_file.write(json.dumps(jsonl_entry, ensure_ascii=False) + '\n')
                 
                 temp_file.close()
                 batch_file_path = temp_file.name
