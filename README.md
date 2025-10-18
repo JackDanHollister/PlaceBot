@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="doc/placebot_logo.png" alt="PlaceBot Logo" width="300"/>
+</p>
+
 # 🌍 PlaceBot - Multi-Vendor AI Locality Processor
 
-PlaceBot is a lightweight tool designed to convert verbatim locality descriptions—such as those found on natural history specimen labels—into standardised geographic coordinates (latitude and longitude). It uses modern natural language processing (NLP) and large language model (LLM) techniques to interpret descriptive place names, estimate coordinates, and assess confidence levels.
+PlaceBot is a lightweight tool designed to convert verbatim locality descriptions, such as those found on natural history specimen labels, into standardised geographic coordinates (latitude and longitude). It uses modern natural language processing (NLP) and large language model (LLM) techniques to interpret descriptive place names, estimate coordinates, convert grid references, and assess confidence levels.
 
 This tool is intended to support digitisation, curation, and research workflows by automating a key step in georeferencing legacy specimen data.
 
