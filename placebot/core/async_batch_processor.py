@@ -336,7 +336,7 @@ class OpenAIBatchProcessor:
                         "response_format": {"type": "json_object"}
                     }
                 }
-                f.write(json.dumps(request) + '\n')
+                f.write(json.dumps(request, ensure_ascii=False) + '\n')
         
         return output_file
     
@@ -614,7 +614,7 @@ class GeminiBatchProcessor:
                         }
                     }
                 }
-                f.write(json.dumps(request) + '\n')
+                f.write(json.dumps(request, ensure_ascii=False) + '\n')
         
         return output_file
     

@@ -287,8 +287,8 @@ def run_interactive_mode(args):
                         
                         # Save individual batch info file
                         sub_info_file = os.path.join(batch_dir, f"{sub_batch_name}_info.json")
-                        with open(sub_info_file, 'w') as f:
-                            json.dump(sub_batch_info, f, indent=2)
+                        with open(sub_info_file, 'w', encoding='utf-8') as f:
+                            json.dump(sub_batch_info, f, indent=2, ensure_ascii=False)
                         
                         print(f"   ✅ Submitted: {sub_batch_id}")
                         print()
@@ -306,7 +306,7 @@ def run_interactive_mode(args):
                 
                 # Save master summary
                 summary_file = os.path.join(batch_dir, f"{batch_name}_staggered_summary.json")
-                with open(summary_file, 'w') as f:
+                with open(summary_file, 'w', encoding='utf-8') as f:
                     json.dump({
                         'total_records': total_records,
                         'batch_size': batch_size,
@@ -317,7 +317,7 @@ def run_interactive_mode(args):
                         'submitted_at': timestamp,
                         'output_formats': output_formats,
                         'batches': batch_info_list
-                    }, f, indent=2)
+                    }, f, indent=2, ensure_ascii=False)
                 
                 print(f"\n🎉 Staggered batch submission complete!")
                 print(f"   📊 Batches submitted: {len(batch_info_list)}/{num_batches}")
@@ -355,7 +355,7 @@ def run_interactive_mode(args):
             # Regular single batch mode - save info
             batch_info_file = os.path.join(batch_dir, f"{batch_name}_info.json")
             import json
-            with open(batch_info_file, 'w') as f:
+            with open(batch_info_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     'batch_id': batch_id,
                     'batch_name': batch_name,
@@ -365,7 +365,7 @@ def run_interactive_mode(args):
                     'record_count': len(records),
                     'submitted_at': timestamp,
                     'output_formats': output_formats
-                }, f, indent=2)
+                }, f, indent=2, ensure_ascii=False)
             
             print(f"\n✅ Batch submitted successfully!")
             print(f"   📋 Batch ID: {batch_id}")

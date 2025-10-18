@@ -90,7 +90,7 @@ def update_resume_state(dataset_info: Dict[str, Any], last_completed_index: int,
         
         # Save state
         with open(resume_file, 'w', encoding='utf-8') as f:
-            json.dump(state, f, indent=2)
+            json.dump(state, f, indent=2, ensure_ascii=False)
             
     except Exception as e:
         print(f"WARNING: Could not save resume state: {e}")

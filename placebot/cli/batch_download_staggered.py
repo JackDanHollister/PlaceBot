@@ -120,8 +120,8 @@ def download_staggered_batch_results(summary_file):
         summary_base = os.path.basename(summary_file).replace('_staggered_summary.json', '')
         results_file = os.path.join(output_dir, f"{summary_base}_merged_results.json")
         
-        with open(results_file, 'w') as f:
-            json.dump(all_results, f, indent=2)
+        with open(results_file, 'w', encoding='utf-8') as f:
+            json.dump(all_results, f, indent=2, ensure_ascii=False)
         
         print(f"\n[INFO] Merged results saved to: {results_file}")
         print(f"[SUCCESS] Download complete!")
