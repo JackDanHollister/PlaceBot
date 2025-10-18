@@ -573,7 +573,7 @@ class GeminiBatchProcessor:
         self.client = genai.Client(api_key=api_key)
         self.batch_jobs = {}
         
-        print("✅ GeminiBatchProcessor initialized")
+        print("[SUCCESS] GeminiBatchProcessor initialized")
     
     def prepare_batch_file(self, records: List[Dict[str, Any]], 
                           prompt_template: str,
@@ -1145,7 +1145,7 @@ class GeminiBatchProcessor:
         Returns:
             List of parsed results
         """
-        print(f"\n📥 Retrieving Gemini batch results: {batch_id}")
+        print(f"\n[INFO] Retrieving Gemini batch results: {batch_id}")
         
         try:
             # Get batch job
@@ -1153,14 +1153,14 @@ class GeminiBatchProcessor:
             
             # Check if succeeded
             if batch_job.state.name != 'JOB_STATE_SUCCEEDED':
-                print(f"   ⚠️  Batch not ready: {batch_job.state.name}")
+                print(f"   [WARNING] Batch not ready: {batch_job.state.name}")
                 return []
             
             results = []
             
             # Check if results are in a file or inline
             if batch_job.dest and batch_job.dest.file_name:
-                print(f"   📁 Downloading results file...")
+                print(f"   [INFO] Downloading results file...")
                 file_content_bytes = self.client.files.download(file=batch_job.dest.file_name)
                 file_content = file_content_bytes.decode('utf-8')
                 
@@ -1233,10 +1233,10 @@ class GeminiBatchProcessor:
                                 'error': str(response.error)
                             })
                     except Exception as e:
-                        print(f"   ⚠️  Error processing response: {e}")
+                        print(f"   [WARNING] Error processing response: {e}")
             
-            print(f"   ✓ Successful: {sum(1 for r in results if r.get('success'))}")
-            print(f"   ✗ Failed: {sum(1 for r in results if not r.get('success'))}")
+            print(f"   [INFO] Successful: {sum(1 for r in results if r.get('success'))}")
+            print(f"   [INFO] Failed: {sum(1 for r in results if not r.get('success'))}")
             
             return results
             

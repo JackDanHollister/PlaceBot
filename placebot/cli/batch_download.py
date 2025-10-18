@@ -19,7 +19,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Load environment variables
 from dotenv import load_dotenv
-load_dotenv()
+# Load from both possible locations
+root_path = Path(__file__).parent.parent.parent
+load_dotenv(root_path / '.env')
+load_dotenv(root_path / 'config' / '.env')
 
 from placebot.core.async_batch_processor import (
     AnthropicBatchProcessor,
@@ -50,14 +53,14 @@ def download_batch_results(batch_id, batch_dir='./output/batch_jobs'):
                     continue
     
     if not info_file:
-        print(f"❌ Batch {batch_id} not found")
+        print(f"[ERROR] Batch {batch_id} not found")
         return
     
     # Load batch info
     with open(info_file) as f:
         info = json.load(f)
     
-    print(f"\n📥 DOWNLOADING BATCH RESULTS")
+    print(f"\nDOWNLOADING BATCH RESULTS")
     print("=" * 80)
     print(f"Batch ID: {batch_id}")
     print(f"Name: {info['batch_name']}")
@@ -79,19 +82,19 @@ def download_batch_results(batch_id, batch_dir='./output/batch_jobs'):
         api_key = os.getenv('GOOGLE_API_KEY', '') or os.getenv('GEMINI_API_KEY', '')
         processor = GeminiBatchProcessor(api_key, info['model'])
     else:
-        print(f"❌ Unknown provider: {provider}")
+        print(f"[ERROR] Unknown provider: {provider}")
         return
     
     # Download results
     try:
-        print("📥 Downloading results from API...")
+        print("[INFO] Downloading results from API...")
         results = processor.get_results(batch_id)
         
         if not results:
-            print("❌ No results found")
+            print("[ERROR] No results found")
             return
         
-        print(f"✅ Downloaded {len(results)} results")
+        print(f"[SUCCESS] Downloaded {len(results)} results")
         
         # Save results to file
         output_dir = './output'
@@ -101,11 +104,11 @@ def download_batch_results(batch_id, batch_dir='./output/batch_jobs'):
         with open(results_file, 'w') as f:
             json.dump(results, f, indent=2)
         
-        print(f"💾 Results saved to: {results_file}")
-        print(f"\n✅ Download complete!")
+        print(f"[INFO] Results saved to: {results_file}")
+        print(f"\n[SUCCESS] Download complete!")
         
     except Exception as e:
-        print(f"❌ Error downloading results: {e}")
+        print(f"[ERROR] Error downloading results: {e}")
         import traceback
         traceback.print_exc()
 
@@ -113,7 +116,7 @@ def download_batch_results(batch_id, batch_dir='./output/batch_jobs'):
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python3 -m placebot.cli.batch_download <batch_id>")
+        print("Usage: python -m placebot.cli.batch_download <batch_id>")
         sys.exit(1)
     
     batch_id = sys.argv[1]

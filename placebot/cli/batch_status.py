@@ -20,7 +20,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
-load_dotenv()
+# Load from both possible locations
+root_path = Path(__file__).parent.parent.parent
+load_dotenv(root_path / '.env')
+load_dotenv(root_path / 'config' / '.env')
 
 from placebot.core.async_batch_processor import (
     AnthropicBatchProcessor,
@@ -32,23 +35,23 @@ from placebot.core.async_batch_processor import (
 def list_batch_jobs(batch_dir='./output/batch_jobs'):
     """List all batch jobs with their info."""
     if not os.path.exists(batch_dir):
-        print("❌ No batch jobs found")
+        print("[ERROR] No batch jobs found")
         return
     
     info_files = [f for f in os.listdir(batch_dir) if f.endswith('_info.json')]
     
     if not info_files:
-        print("❌ No batch jobs found")
+        print("[ERROR] No batch jobs found")
         return
     
-    print(f"\n📋 BATCH JOBS ({len(info_files)} total)")
+    print(f"\nBATCH JOBS ({len(info_files)} total)")
     print("=" * 80)
     
     for info_file in sorted(info_files):
         with open(os.path.join(batch_dir, info_file)) as f:
             info = json.load(f)
         
-        print(f"\n📦 {info['batch_name']}")
+        print(f"\n[BATCH] {info['batch_name']}")
         print(f"   ID: {info['batch_id']}")
         print(f"   Provider: {info['provider']}")
         print(f"   Records: {info['record_count']}")
@@ -77,14 +80,14 @@ def check_batch_status(batch_id, batch_dir='./output/batch_jobs'):
                     continue
     
     if not info_file:
-        print(f"❌ Batch {batch_id} not found")
+        print(f"[ERROR] Batch {batch_id} not found")
         return
     
     # Load batch info
     with open(info_file) as f:
         info = json.load(f)
     
-    print(f"\n📊 BATCH STATUS")
+    print(f"\nBATCH STATUS")
     print("=" * 80)
     print(f"Batch ID: {batch_id}")
     print(f"Name: {info['batch_name']}")
@@ -109,7 +112,7 @@ def check_batch_status(batch_id, batch_dir='./output/batch_jobs'):
         api_key = os.getenv('GOOGLE_API_KEY', '') or os.getenv('GEMINI_API_KEY', '')
         processor = GeminiBatchProcessor(api_key, info['model'])
     else:
-        print(f"❌ Unknown provider: {provider}")
+        print(f"[ERROR] Unknown provider: {provider}")
         return
     
     # Check status
@@ -135,25 +138,25 @@ def check_batch_status(batch_id, batch_dir='./output/batch_jobs'):
             is_complete = (succeeded == total and total > 0) or status.get('status') in ['completed', 'ended']
             
             if is_complete:
-                print("\n✅ Batch processing complete!")
+                print("\n[SUCCESS] Batch processing complete!")
                 if failed > 0:
-                    print(f"⚠️  {failed} requests failed")
-                print(f"\n📥 To download results:")
-                print(f"   python3 -m placebot.cli.batch_download {batch_id}")
+                    print(f"[WARNING] {failed} requests failed")
+                print(f"\n[INFO] To download results:")
+                print(f"   python -m placebot.cli.batch_download {batch_id}")
             else:
-                print(f"\n⏳ Still processing... Check again later")
+                print(f"\n[INFO] Still processing... Check again later")
         else:
             print(f"Details: {status}")
             
     except Exception as e:
-        print(f"❌ Error checking status: {e}")
+        print(f"[ERROR] Error checking status: {e}")
 
 
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python3 -m placebot.cli.batch_status <batch_id>")
-        print("       python3 -m placebot.cli.batch_status --list")
+        print("Usage: python -m placebot.cli.batch_status <batch_id>")
+        print("       python -m placebot.cli.batch_status --list")
         sys.exit(1)
     
     if sys.argv[1] == '--list':
