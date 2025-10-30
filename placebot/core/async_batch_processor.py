@@ -313,7 +313,7 @@ class OpenAIBatchProcessor:
         """
         import json
         
-        with open(output_file, 'w') as f:
+        with open(output_file, 'w', encoding='utf-8') as f:
             for record in records:
                 barcode = record.get('Barcode', f'record_{records.index(record)}')
                 # Ensure barcode is a string for OpenAI API
@@ -591,7 +591,7 @@ class GeminiBatchProcessor:
         """
         import json
         
-        with open(output_file, 'w') as f:
+        with open(output_file, 'w', encoding='utf-8') as f:
             for record in records:
                 barcode = record.get('Barcode', f'record_{records.index(record)}')
                 # Ensure barcode is string and handle both field names
