@@ -29,10 +29,14 @@ from placebot.core.async_batch_processor import (
     OpenAIBatchProcessor,
     GeminiBatchProcessor
 )
+from placebot.core.data_dirs import get_output_dir, get_batch_jobs_dir
 
 
-def download_batch_results(batch_id, batch_dir='./output/batch_jobs'):
+def download_batch_results(batch_id, batch_dir=None):
     """Download results from a completed batch job."""
+    
+    if batch_dir is None:
+        batch_dir = str(get_batch_jobs_dir())
     
     # Find the batch info file
     info_file = None
@@ -97,7 +101,7 @@ def download_batch_results(batch_id, batch_dir='./output/batch_jobs'):
         print(f"[SUCCESS] Downloaded {len(results)} results")
         
         # Save results to file
-        output_dir = './output'
+        output_dir = str(get_output_dir())
         os.makedirs(output_dir, exist_ok=True)
         
         results_file = os.path.join(output_dir, f"{info['batch_name']}_results.json")

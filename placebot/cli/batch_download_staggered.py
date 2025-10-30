@@ -27,6 +27,8 @@ root_path = Path(__file__).parent.parent.parent
 load_dotenv(root_path / '.env')
 load_dotenv(root_path / 'config' / '.env')
 
+from placebot.core.data_dirs import get_output_dir
+
 from placebot.core.async_batch_processor import (
     AnthropicBatchProcessor,
     OpenAIBatchProcessor,
@@ -113,7 +115,7 @@ def download_staggered_batch_results(summary_file):
     
     # Save merged results
     if all_results:
-        output_dir = './output'
+        output_dir = str(get_output_dir())
         os.makedirs(output_dir, exist_ok=True)
         
         # Extract base name from summary file

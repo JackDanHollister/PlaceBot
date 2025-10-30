@@ -30,10 +30,13 @@ from placebot.core.async_batch_processor import (
     OpenAIBatchProcessor,
     GeminiBatchProcessor
 )
+from placebot.core.data_dirs import get_batch_jobs_dir
 
 
-def list_batch_jobs(batch_dir='./output/batch_jobs'):
+def list_batch_jobs(batch_dir=None):
     """List all batch jobs with their info."""
+    if batch_dir is None:
+        batch_dir = str(get_batch_jobs_dir())
     if not os.path.exists(batch_dir):
         print("[ERROR] No batch jobs found")
         return
@@ -58,8 +61,11 @@ def list_batch_jobs(batch_dir='./output/batch_jobs'):
         print(f"   Submitted: {info['submitted_at']}")
 
 
-def check_batch_status(batch_id, batch_dir='./output/batch_jobs'):
+def check_batch_status(batch_id, batch_dir=None):
     """Check status of a specific batch job."""
+    
+    if batch_dir is None:
+        batch_dir = str(get_batch_jobs_dir())
     
     # Find the batch info file
     info_file = None
