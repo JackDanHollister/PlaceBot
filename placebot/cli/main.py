@@ -184,7 +184,7 @@ def run_interactive_mode(args):
             
             # Create output directory for batch files
             import os
-            batch_dir = os.path.join(args.output_dir, 'batch_jobs')
+            batch_dir = os.path.join(output_dir, 'batch_jobs')
             os.makedirs(batch_dir, exist_ok=True)
             
             # Prepare batch file based on provider
@@ -459,10 +459,6 @@ For more information, visit: https://github.com/yourusername/locality-processor
     if args.show_dirs:
         show_directory_info()
         return 0
-    
-    # Create directories if they don't exist
-    os.makedirs(args.input_dir, exist_ok=True)
-    os.makedirs(args.output_dir, exist_ok=True)
     
     # Check if batch mode is requested
     if args.batch:
