@@ -193,7 +193,9 @@ def run_interactive_mode(args):
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             # Extract filename without extension
             filename_stem = os.path.splitext(selected_dataset['filename'])[0]
-            batch_name = f"{filename_stem}_{model_config.get('name', 'model')}_{timestamp}"
+            # Replace spaces in model name to avoid issues with command-line arguments
+            model_name_safe = model_config.get('name', 'model').replace(' ', '_')
+            batch_name = f"{filename_stem}_{model_name_safe}_{timestamp}"
             
             # Check if staggered mode - handle differently
             if processing_mode == 'staggered':
