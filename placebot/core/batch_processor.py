@@ -219,20 +219,23 @@ class BatchProcessor:
         processed_record = record.copy()
         
         # Step 1: Preprocess coordinates (existing coords + grid reference conversion)
-        # NOTE: For locality extraction use case, we want AI to extract coordinates from text
-        # rather than preserve existing coordinates, so we skip coordinate preprocessing
         enhanced_record = preprocess_coordinates(record)
         
         # Step 2: Always call AI for normalization and restructuring
         locality = record.get('label_verbatim', '') or record.get('Locality verbatim', '')
         country = record.get('Country', '')
         
-        # For locality extraction, we don't pass existing coordinates to AI
-        # This forces AI to extract coordinates from locality text instead of preserving existing ones
-        existing_lat = None  # Force coordinate extraction from locality text
-        existing_lon = None  # Force coordinate extraction from locality text
-        existing_radius = None
-        coord_source = 'needs_ai_processing'  # Always process with AI
+        # Use preprocessed coordinates if available (grid refs, existing coords)
+        existing_lat = enhanced_record.get('preprocessed_lat')
+        existing_lon = enhanced_record.get('preprocessed_lon')
+        existing_radius = enhanced_record.get('preprocessed_radius')
+        coord_source = enhanced_record.get('preprocessed_source', 'needs_ai_processing')
+        
+        # DEBUG: Print what we're passing to AI
+        if existing_lat and existing_lon:
+            print(f"   🎯 Passing preprocessed coords to AI: {existing_lat:.6f}, {existing_lon:.6f} (source: {coord_source})")
+        else:
+            print(f"   ⚠️  No preprocessed coords - AI will estimate")
         
         ai_result = ai_processor.process_locality(
             locality, country, existing_lat, existing_lon, coord_source, existing_radius

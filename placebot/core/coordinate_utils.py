@@ -238,7 +238,7 @@ def preprocess_coordinates(record: Dict) -> Dict:
     Returns:
         Enhanced record with preprocessing results
     """
-    locality = record.get('Locality verbatim', '')
+    locality = record.get('label_verbatim', '') or record.get('Locality verbatim', '')
     existing_lat = record.get('Latitude', record.get('latitude', ''))
     existing_lon = record.get('Longitude', record.get('longitude', ''))
     
