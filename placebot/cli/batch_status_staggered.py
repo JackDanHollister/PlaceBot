@@ -6,10 +6,10 @@ Staggered Batch Status Checker
 Check status of all sub-batches in a staggered batch job.
 
 Usage:
-    python3 -m placebot.cli.batch_status_staggered <staggered_summary_file>
+    python -m placebot.cli.batch_status_staggered <staggered_summary_file>
     
 Example:
-    python3 -m placebot.cli.batch_status_staggered ./output/batch_jobs/BGE_1_Gemini_2.5_Pro_20251013_203958_staggered_summary.json
+    python -m placebot.cli.batch_status_staggered ./output/batch_jobs/BGE_1_Gemini_2.5_Pro_20251013_203958_staggered_summary.json
 """
 
 import sys
@@ -22,7 +22,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Load environment variables
 from dotenv import load_dotenv
-load_dotenv()
+# Load from both possible locations
+root_path = Path(__file__).parent.parent.parent
+load_dotenv(root_path / '.env')
+load_dotenv(root_path / 'config' / '.env')
 
 from placebot.core.async_batch_processor import (
     AnthropicBatchProcessor,
@@ -36,13 +39,13 @@ def check_staggered_batch_status(summary_file):
     
     # Load summary
     if not os.path.exists(summary_file):
-        print(f"❌ Summary file not found: {summary_file}")
+        print(f"[ERROR] Summary file not found: {summary_file}")
         return
     
     with open(summary_file) as f:
         summary = json.load(f)
     
-    print(f"\n📊 STAGGERED BATCH STATUS")
+    print(f"\n[INFO] STAGGERED BATCH STATUS")
     print("=" * 80)
     print(f"Dataset: {summary['dataset']}")
     print(f"Total records: {summary['total_records']}")
@@ -66,7 +69,7 @@ def check_staggered_batch_status(summary_file):
         api_key = os.getenv('GOOGLE_API_KEY', '') or os.getenv('GEMINI_API_KEY', '')
         processor = GeminiBatchProcessor(api_key, summary['model'])
     else:
-        print(f"❌ Unknown provider: {provider}")
+        print(f"[ERROR] Unknown provider: {provider}")
         return
     
     # Check status of each batch
@@ -76,7 +79,7 @@ def check_staggered_batch_status(summary_file):
     total_succeeded = 0
     total_failed = 0
     
-    print("📋 BATCH STATUS:")
+    print("[INFO] BATCH STATUS:")
     print("-" * 80)
     
     for batch_info in summary['batches']:
@@ -100,26 +103,26 @@ def check_staggered_batch_status(summary_file):
                 failed_count = status.get('failed', 0)
                 total_succeeded += succeeded
                 total_failed += failed_count
-                print(f"  ✅ Complete: {succeeded} succeeded, {failed_count} failed")
+                print(f"  [SUCCESS] Complete: {succeeded} succeeded, {failed_count} failed")
             elif status_display in ['failed', 'error']:
                 failed += 1
-                print(f"  ❌ Failed")
+                print(f"  [ERROR] Failed")
             else:
                 pending += 1
                 progress = status.get('succeeded', 0)
                 if progress > 0:
-                    print(f"  ⏳ In progress: {progress}/{record_count}")
+                    print(f"  [INFO] In progress: {progress}/{record_count}")
                 else:
-                    print(f"  ⏳ Pending...")
+                    print(f"  [INFO] Pending...")
         
         except Exception as e:
-            print(f"  ❌ Error checking status: {e}")
+            print(f"  [ERROR] Error checking status: {e}")
             failed += 1
     
     # Overall summary
     print()
     print("=" * 80)
-    print(f"📊 OVERALL STATUS:")
+    print(f"[INFO] OVERALL STATUS:")
     print(f"  Completed batches: {completed}/{summary['batches_submitted']}")
     print(f"  Pending batches: {pending}/{summary['batches_submitted']}")
     print(f"  Failed batches: {failed}/{summary['batches_submitted']}")
@@ -129,24 +132,24 @@ def check_staggered_batch_status(summary_file):
         print(f"  Progress: {total_succeeded + total_failed}/{summary['total_records']} records processed")
     
     if completed == summary['batches_submitted']:
-        print(f"\n✅ All batches complete!")
-        print(f"\n📥 Download results:")
-        print(f"   python3 -m placebot.cli.batch_download_staggered {summary_file}")
+        print(f"\n[SUCCESS] All batches complete!")
+        print(f"\n[INFO] Download results:")
+        print(f"   python -m placebot.cli.batch_download_staggered {summary_file}")
     elif pending > 0:
-        print(f"\n⏳ {pending} batch(es) still processing...")
+        print(f"\n[INFO] {pending} batch(es) still processing...")
         print(f"   Check again in a few minutes")
     
     if failed > 0:
-        print(f"\n⚠️  {failed} batch(es) failed - check individual batches for errors")
+        print(f"\n[WARNING] {failed} batch(es) failed - check individual batches for errors")
 
 
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python3 -m placebot.cli.batch_status_staggered <summary_file>")
+        print("Usage: python -m placebot.cli.batch_status_staggered <summary_file>")
         print()
         print("Example:")
-        print("  python3 -m placebot.cli.batch_status_staggered \\")
+        print("  python -m placebot.cli.batch_status_staggered \\")
         print("    ./output/batch_jobs/BGE_1_..._staggered_summary.json")
         sys.exit(1)
     

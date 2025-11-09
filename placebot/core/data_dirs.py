@@ -11,10 +11,13 @@ from pathlib import Path
 
 
 def get_placebot_home():
-    """Get PlaceBot's data directory in user's home folder."""
-    home = Path.home()
-    placebot_dir = home / '.placebot'
-    return placebot_dir
+    """Get PlaceBot's root directory (where the script is installed)."""
+    # Get the directory where this module is located
+    module_dir = Path(__file__).parent
+    # Go up two levels to get to the PlaceBot root directory
+    # From placebot/core/data_dirs.py to PlaceBot root
+    placebot_root = module_dir.parent.parent
+    return placebot_root
 
 
 def get_input_dir():
@@ -40,12 +43,11 @@ def setup_directories():
     batch_jobs_dir = get_batch_jobs_dir()
     
     # Create directories
-    placebot_home.mkdir(exist_ok=True)
     input_dir.mkdir(exist_ok=True)
     output_dir.mkdir(exist_ok=True)
     batch_jobs_dir.mkdir(exist_ok=True)
     
-    # Create README in input directory
+    # Create README in input directory if it doesn't exist
     readme_file = input_dir / 'README.txt'
     if not readme_file.exists():
         with open(readme_file, 'w') as f:
@@ -68,7 +70,7 @@ Optional columns:
 - lat_manual, lon_manual (for comparison)
 
 Example:
-  cp ~/my_dataset.csv ~/.placebot/input/
+  Copy your dataset files to this 'input' folder
 
 Then run:
   placebot
@@ -88,17 +90,27 @@ def show_directory_info():
     """Display PlaceBot directory information."""
     dirs = setup_directories()
     
-    print("📂 PlaceBot Data Directories")
+    try:
+        # Try to print with emoji
+        print("📂 PlaceBot Data Directories")
+    except UnicodeEncodeError:
+        # Fallback for Windows terminals that don't support emoji
+        print("PlaceBot Data Directories")
+    
     print("="*70)
     print(f"Home:       {dirs['home']}")
     print(f"Input:      {dirs['input']}")
     print(f"Output:     {dirs['output']}")
     print(f"Batch Jobs: {dirs['batch_jobs']}")
     print()
-    print("💡 To add datasets:")
-    print(f"   cp your_dataset.csv {dirs['input']}/")
+    print("To add datasets:")
+    print(f"   Copy your dataset files to: {dirs['input']}")
     print()
 
 
-if __name__ == '__main__':
-    show_directory_info()
+if __name__ == "__main__":
+    # For testing - print directory locations
+    dirs = setup_directories()
+    print(f"PlaceBot directories configured:")
+    for key, value in dirs.items():
+        print(f"  {key}: {value}")

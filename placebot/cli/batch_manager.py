@@ -30,6 +30,7 @@ from placebot.core.async_batch_processor import (
     OpenAIBatchProcessor,
 )
 from placebot.core.async_batch_processor import GeminiBatchProcessor
+from placebot.core.data_dirs import get_batch_jobs_dir
 
 
 def get_batch_processor(provider, api_key, model_id):
@@ -46,8 +47,10 @@ def get_batch_processor(provider, api_key, model_id):
         return None
 
 
-def load_batch_info(batch_dir='./output/batch_jobs'):
+def load_batch_info(batch_dir=None):
     """Load all batch job info files."""
+    if batch_dir is None:
+        batch_dir = str(get_batch_jobs_dir())
     if not os.path.exists(batch_dir):
         return []
     
@@ -89,8 +92,11 @@ def list_jobs():
         print(f"   Submitted: {job['submitted_at']}")
 
 
-def check_job_status(batch_id, batch_dir='./output/batch_jobs'):
+def check_job_status(batch_id, batch_dir=None):
     """Check status of a specific job."""
+    if batch_dir is None:
+        batch_dir = str(get_batch_jobs_dir())
+    
     # Find job info
     job_info = None
     for filename in os.listdir(batch_dir):
@@ -139,8 +145,11 @@ def check_job_status(batch_id, batch_dir='./output/batch_jobs'):
     return status
 
 
-def download_job(batch_id, batch_dir='./output/batch_jobs'):
+def download_job(batch_id, batch_dir=None):
     """Download results from a completed job."""
+    if batch_dir is None:
+        batch_dir = str(get_batch_jobs_dir())
+    
     # Similar to check_job_status but calls get_results
     # Find job info
     job_info = None
@@ -180,10 +189,13 @@ def download_job(batch_id, batch_dir='./output/batch_jobs'):
     try:
         results = processor.get_results(batch_id)
         
-        # Save results
-        output_file = f"./output/{job_info['batch_name']}_results.json"
-        with open(output_file, 'w') as f:
-            json.dump(results, f, indent=2)
+        # Save results to output directory
+        output_dir = Path(__file__).parent.parent.parent / 'output'
+        output_dir.mkdir(exist_ok=True)
+        output_file = output_dir / f"{job_info['batch_name']}_results.json"
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
         
         success_count = sum(1 for r in results if r.get('success'))
         print(f"✅ Downloaded {len(results)} results ({success_count} successful)")

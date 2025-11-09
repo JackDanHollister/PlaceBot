@@ -22,10 +22,24 @@ __version__ = "1.0.0"
 __author__ = "Your Name"
 __license__ = "MIT"
 
-from placebot.core.ai_processor import AIProcessor
-from placebot.core.batch_processor import BatchProcessor
-
 __all__ = [
     "AIProcessor",
     "BatchProcessor",
 ]
+
+
+def __getattr__(name):
+    """
+    Lazy import to avoid import errors when running CLI scripts.
+    
+    This allows CLI scripts like batch_status and batch_download to run
+    via 'python -m placebot.cli.batch_status' without triggering import
+    errors from the package __init__.py.
+    """
+    if name == "AIProcessor":
+        from placebot.core.ai_processor import AIProcessor
+        return AIProcessor
+    elif name == "BatchProcessor":
+        from placebot.core.batch_processor import BatchProcessor
+        return BatchProcessor
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -184,7 +184,7 @@ def run_interactive_mode(args):
             
             # Create output directory for batch files
             import os
-            batch_dir = os.path.join(args.output_dir, 'batch_jobs')
+            batch_dir = os.path.join(output_dir, 'batch_jobs')
             os.makedirs(batch_dir, exist_ok=True)
             
             # Prepare batch file based on provider
@@ -193,7 +193,9 @@ def run_interactive_mode(args):
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             # Extract filename without extension
             filename_stem = os.path.splitext(selected_dataset['filename'])[0]
-            batch_name = f"{filename_stem}_{model_config.get('name', 'model')}_{timestamp}"
+            # Replace spaces in model name to avoid issues with command-line arguments
+            model_name_safe = model_config.get('name', 'model').replace(' ', '_')
+            batch_name = f"{filename_stem}_{model_name_safe}_{timestamp}"
             
             # Check if staggered mode - handle differently
             if processing_mode == 'staggered':
@@ -287,8 +289,8 @@ def run_interactive_mode(args):
                         
                         # Save individual batch info file
                         sub_info_file = os.path.join(batch_dir, f"{sub_batch_name}_info.json")
-                        with open(sub_info_file, 'w') as f:
-                            json.dump(sub_batch_info, f, indent=2)
+                        with open(sub_info_file, 'w', encoding='utf-8') as f:
+                            json.dump(sub_batch_info, f, indent=2, ensure_ascii=False)
                         
                         print(f"   ✅ Submitted: {sub_batch_id}")
                         print()
@@ -306,7 +308,7 @@ def run_interactive_mode(args):
                 
                 # Save master summary
                 summary_file = os.path.join(batch_dir, f"{batch_name}_staggered_summary.json")
-                with open(summary_file, 'w') as f:
+                with open(summary_file, 'w', encoding='utf-8') as f:
                     json.dump({
                         'total_records': total_records,
                         'batch_size': batch_size,
@@ -317,16 +319,16 @@ def run_interactive_mode(args):
                         'submitted_at': timestamp,
                         'output_formats': output_formats,
                         'batches': batch_info_list
-                    }, f, indent=2)
+                    }, f, indent=2, ensure_ascii=False)
                 
                 print(f"\n🎉 Staggered batch submission complete!")
                 print(f"   📊 Batches submitted: {len(batch_info_list)}/{num_batches}")
                 print(f"   📝 Total records: {sum(b['record_count'] for b in batch_info_list)}/{total_records}")
                 print(f"   💾 Summary saved: {summary_file}")
                 print(f"\n🔍 Check status of all batches:")
-                print(f"   python3 -m placebot.cli.batch_status_staggered {summary_file}")
+                print(f"   python -m placebot.cli.batch_status_staggered {summary_file}")
                 print(f"\n📥 Download and merge results when complete:")
-                print(f"   python3 -m placebot.cli.batch_download_staggered {summary_file}")
+                print(f"   python -m placebot.cli.batch_download_staggered {summary_file}")
                 print(f"\n💡 Each batch will complete independently within 24 hours")
                 
                 return 0
@@ -355,7 +357,7 @@ def run_interactive_mode(args):
             # Regular single batch mode - save info
             batch_info_file = os.path.join(batch_dir, f"{batch_name}_info.json")
             import json
-            with open(batch_info_file, 'w') as f:
+            with open(batch_info_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     'batch_id': batch_id,
                     'batch_name': batch_name,
@@ -365,14 +367,14 @@ def run_interactive_mode(args):
                     'record_count': len(records),
                     'submitted_at': timestamp,
                     'output_formats': output_formats
-                }, f, indent=2)
+                }, f, indent=2, ensure_ascii=False)
             
             print(f"\n✅ Batch submitted successfully!")
             print(f"   📋 Batch ID: {batch_id}")
             print(f"   💾 Info saved: {batch_info_file}")
             print(f"\n⏳ Processing will complete within 24 hours (usually much faster)")
             print(f"\n📊 To check status later:")
-            print(f"   python3 -m placebot.cli.batch_status {batch_id}")
+            print(f"   python -m placebot.cli.batch_status {batch_id}")
             print(f"\n💡 Results will be downloaded automatically when ready")
             
             return 0
@@ -459,10 +461,6 @@ For more information, visit: https://github.com/yourusername/locality-processor
     if args.show_dirs:
         show_directory_info()
         return 0
-    
-    # Create directories if they don't exist
-    os.makedirs(args.input_dir, exist_ok=True)
-    os.makedirs(args.output_dir, exist_ok=True)
     
     # Check if batch mode is requested
     if args.batch:
