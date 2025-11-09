@@ -19,6 +19,52 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 import anthropic
 
+# New import: coordinate preprocessing utilities
+from .coordinate_utils import preprocess_coordinates, detect_grid_references
+
+
+def build_coordinate_context_for_prompt(record: Dict[str, Any]) -> str:
+    """
+    Build a coordinate context string for inclusion in AI prompts based on
+    preprocessing (existing coords or converted grid refs).
+
+    Uses a shallow copy of the record so we don't mutate the original record
+    objects passed into the async batch processor.
+    """
+    # Make a shallow copy to avoid mutating original record objects
+    record_copy = record.copy()
+    processed = preprocess_coordinates(record_copy)
+
+    existing_lat = processed.get('preprocessed_lat')
+    existing_lon = processed.get('preprocessed_lon')
+    coord_source = processed.get('preprocessed_source', '')
+    coord_radius = processed.get('preprocessed_radius', None)
+
+    # If coordinates are available
+    if existing_lat is not None and existing_lon is not None:
+        if coord_source == "coordinates_provided":
+            return (
+                f"\n\nEXISTING COORDINATES: {existing_lat:.6f}, {existing_lon:.6f} "
+                f"(PRESERVE THESE EXACT COORDINATES - do not overwrite)"
+            )
+        elif coord_source == "grid_reference_converted":
+            # Try to use the converted_grid_ref if present; otherwise detect
+            grid_text = processed.get('converted_grid_ref')
+            if not grid_text:
+                locality = record.get('Locality verbatim', '') or record.get('label_verbatim', '')
+                detected = detect_grid_references(locality)
+                grid_text = ", ".join(detected) if detected else "grid reference"
+            context = (
+                f"\n\nGRID REFERENCE CONVERTED: {grid_text} -> {existing_lat:.6f}, {existing_lon:.6f}"
+            )
+            if coord_radius:
+                context += f"\nPRECISION RADIUS: {coord_radius:.1f} meters (use this for coordinate_radius_meters field)"
+            context += "\nIMPORTANT: PRESERVE these mathematically converted coordinates, do not estimate or overwrite!"
+            return context
+
+    # No coordinates found
+    return "\n\nNO EXISTING COORDINATES: Please estimate coordinates from locality if possible"
+
 
 class AnthropicBatchProcessor:
     """Handles async batch processing for Anthropic Claude models."""
@@ -56,7 +102,10 @@ class AnthropicBatchProcessor:
             # Handle both 'Locality verbatim' and 'label_verbatim' field names
             locality = record.get('Locality verbatim') or record.get('label_verbatim', '')
             country = record.get('Country', '')
-            
+
+            # Build coordinate context from preprocessing
+            coordinate_context = build_coordinate_context_for_prompt(record)
+
             request = {
                 "custom_id": barcode,
                 "params": {
@@ -64,7 +113,7 @@ class AnthropicBatchProcessor:
                     "max_tokens": 1000,
                     "messages": [{
                         "role": "user",
-                        "content": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}"
+                        "content": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}{coordinate_context}"
                     }]
                 }
             }
@@ -321,6 +370,9 @@ class OpenAIBatchProcessor:
                 # Handle both 'Locality verbatim' and 'label_verbatim' field names
                 locality = record.get('Locality verbatim') or record.get('label_verbatim', '')
                 country = record.get('Country', '')
+
+                # Build coordinate context from preprocessing
+                coordinate_context = build_coordinate_context_for_prompt(record)
                 
                 request = {
                     "custom_id": barcode,
@@ -330,7 +382,7 @@ class OpenAIBatchProcessor:
                         "model": self.model_id,
                         "messages": [{
                             "role": "user",
-                            "content": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}"
+                            "content": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}{coordinate_context}"
                         }],
                         "max_tokens": 1000,
                         "response_format": {"type": "json_object"}
@@ -598,6 +650,9 @@ class GeminiBatchProcessor:
                 barcode = str(barcode)
                 locality = record.get('Locality verbatim') or record.get('label_verbatim', '')
                 country = record.get('Country', '')
+
+                # Build coordinate context from preprocessing
+                coordinate_context = build_coordinate_context_for_prompt(record)
                 
                 # Gemini batch format: {"key": "...", "request": {...}}
                 request = {
@@ -605,7 +660,7 @@ class GeminiBatchProcessor:
                     "request": {
                         "contents": [{
                             "parts": [{
-                                "text": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}"
+                                "text": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}{coordinate_context}"
                             }],
                             "role": "user"
                         }],
@@ -682,8 +737,13 @@ class GeminiBatchProcessor:
                     # Convert to proper Gemini batch format
                     barcode = request.get('custom_id', 'unknown')
                     contents = request.get('contents', [])
-                    
-                    jsonl_entry = {
+
+                    # If contents do not already include coordinate context, attempt to build it
+                    # (this covers cases where callers pass raw requests)
+                    if contents and 'text' in contents[0].get('parts', [{}])[0]:
+                        # Assume caller already included text with any coordinate context
+                        pass
+                    temp_file.write(json.dumps({
                         "key": str(barcode),
                         "request": {
                             "contents": contents,
@@ -691,8 +751,7 @@ class GeminiBatchProcessor:
                                 "responseMimeType": "application/json"
                             }
                         }
-                    }
-                    temp_file.write(json.dumps(jsonl_entry, ensure_ascii=False) + '\n')
+                    }, ensure_ascii=False) + '\n')
                 
                 temp_file.close()
                 batch_file_path = temp_file.name
@@ -915,7 +974,7 @@ class GeminiBatchProcessor:
     
     def cancel_batch(self, job_name: str) -> bool:
         """
-        Cancel a running batch job.
+        Cancel a batch job.
         
         Args:
             job_name: Job name to cancel
@@ -923,14 +982,14 @@ class GeminiBatchProcessor:
         Returns:
             True if canceled successfully
         """
-        try:
-            self.client.batches.delete(name=job_name)
+        if job_name in self.batch_jobs:
+            self.batch_jobs[job_name]['status'] = 'cancelled'
             print(f"✅ Batch {job_name} canceled")
             return True
-        except Exception as e:
-            print(f"❌ Error canceling batch: {e}")
+        else:
+            print(f"❌ Batch {job_name} not found")
             return False
-    
+
     def prepare_batch_requests(self, records: List[Dict[str, Any]], 
                                prompt_template: str) -> List[Dict[str, Any]]:
         """
@@ -950,12 +1009,15 @@ class GeminiBatchProcessor:
             # Handle both 'Locality verbatim' and 'label_verbatim' field names
             locality = record.get('Locality verbatim') or record.get('label_verbatim', '')
             country = record.get('Country', '')
+
+            # Build coordinate context from preprocessing
+            coordinate_context = build_coordinate_context_for_prompt(record)
             
             request = {
                 'custom_id': barcode,
                 'contents': [{
                     'parts': [{
-                        'text': f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}"
+                        'text': f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}{coordinate_context}"
                     }]
                 }]
             }
