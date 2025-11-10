@@ -112,7 +112,7 @@ def convert_grid_reference(grid_ref: str) -> Tuple[Optional[float], Optional[flo
     Convert UK National Grid reference to WGS84 coordinates.
     
     Args:
-        grid_ref: Grid reference string (e.g., 'SK4480', 'TL534672')
+        grid_ref: Grid reference string (e.g., 'SK4480', 'TL534672', 'TL 199 798')
         
     Returns:
         Tuple of (latitude, longitude, radius_meters) or (None, None, None) if conversion fails
@@ -120,6 +120,12 @@ def convert_grid_reference(grid_ref: str) -> Tuple[Optional[float], Optional[flo
     """
     # Clean up the grid reference
     grid_ref = grid_ref.upper().strip()
+    
+    # Remove common prefixes like "grid ref:", "GR:", etc.
+    grid_ref = re.sub(r'^(grid\s+ref[a-z]*[:\s]+|GR[:\s]+)', '', grid_ref, flags=re.IGNORECASE)
+    
+    # Remove all whitespace
+    grid_ref = re.sub(r'\s+', '', grid_ref)
     
     # Match pattern: 2 letters + 4-10 digits
     match = re.match(r'^([A-Z]{2})([0-9]{4,10})$', grid_ref)
