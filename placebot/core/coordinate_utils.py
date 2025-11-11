@@ -124,8 +124,8 @@ def convert_grid_reference(grid_ref: str) -> Tuple[Optional[float], Optional[flo
     # Remove common prefixes like "grid ref:", "GR:", etc.
     grid_ref = re.sub(r'^(grid\s+ref[a-z]*[:\s]+|GR[:\s]+)', '', grid_ref, flags=re.IGNORECASE)
     
-    # Remove all whitespace
-    grid_ref = re.sub(r'\s+', '', grid_ref)
+    # Remove all whitespace and slashes
+    grid_ref = re.sub(r'[\s/]+', '', grid_ref)
     
     # Match pattern: 2 letters + 4-10 digits
     match = re.match(r'^([A-Z]{2})([0-9]{4,10})$', grid_ref)
@@ -186,10 +186,10 @@ def detect_grid_references(locality: str) -> List[str]:
         List of detected grid references
     """
     grid_patterns = [
-        # UK National Grid: 2 letters + 4-10 digits (with optional spacing)
-        # Handles: SK594086, SK 594086, SK 594 086, SK594 086
-        # Digits must be in pairs: 1+1, 2+2, 3+3, 4+4, or 5+5
-        r'\b[A-Z]{2}\s?(?:[0-9]{1}\s?[0-9]{1}|[0-9]{2}\s?[0-9]{2}|[0-9]{3}\s?[0-9]{3}|[0-9]{4}\s?[0-9]{4}|[0-9]{5}\s?[0-9]{5})\b',
+        # UK National Grid: 2 letters + 4-10 digits (with optional spacing/slash)
+        # Handles: SK594086, SK 594086, SK/594086, SK/ 594086, SK/594 086, SK 594 086, SK594 086
+        # Digits must be in pairs: 2+2, 3+3, 4+4, or 5+5 (minimum 4 digits)
+        r'\b[A-Z]{2}(?:\s?/?\s?)?(?:[0-9]{2}\s?[0-9]{2}|[0-9]{3}\s?[0-9]{3}|[0-9]{4}\s?[0-9]{4}|[0-9]{5}\s?[0-9]{5})\b',
         # Irish Grid: 1 letter + 6-10 digits  
         r'\b[HJNOST][0-9]{6,10}\b',
         # Common variations
