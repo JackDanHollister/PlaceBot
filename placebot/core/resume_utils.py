@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Resume Utilities for BGE Locality Processor
-==========================================
+Resume Utilities
+================
 
 Simple resume functionality for batch processing.
 Tracks last completed record index and essential statistics.

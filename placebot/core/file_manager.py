@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-File Manager for BGE Locality Processor
-======================================
+File Manager
+============
 
 Handles dataset discovery, loading, and output file management.
 Supports CSV and TSV formats with automatic delimiter detection.

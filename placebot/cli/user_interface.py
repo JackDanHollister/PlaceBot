@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-User Interface for BGE Locality Processor - FIXED VERSION
-=========================================
+User Interface
+==============
 
 Handles all interactive user prompts and progress display.
 Provides a user-friendly command-line interface.

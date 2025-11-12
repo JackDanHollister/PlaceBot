@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Batch Processor for BGE Locality Processor
-==========================================
+Batch Processor
+===============
 
 Orchestrates the entire processing pipeline using modular components.
 Handles batching, progress tracking, and error recovery.

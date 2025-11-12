@@ -33,13 +33,7 @@ This directory contains sample locality datasets for testing and demonstrating P
 - Complete odonata collection dataset
 - Extensive variety of locality formats
 
-### 🌍 Botanical Gardens Edinburgh (BGE)
-**BGE_1_test100.csv** / **BGE_1_test100.tsv** (100 records)
-- Royal Botanic Garden Edinburgh specimen data
-- High-quality curated localities
-- International collection coverage
-- Excellent for accuracy testing
-
+### 🌍 Biodiversity Genomics Europe (BGE)
 **BGE_1_test20.tsv** (20 records)
 - Quick test subset
 - Rapid validation of model performance

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Model Selection Utility for BGE Locality Processor
-=================================================
+Model Selection Utility
+=======================
 
 Handles loading and selecting AI models from profile files.
 Each model has its own configuration file with API keys, pricing, and capabilities.

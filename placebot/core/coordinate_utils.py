@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Coordinate Utilities for BGE Locality Processor
-==============================================
+Coordinate Utilities
+====================
 
 Handles grid reference detection and conversion to WGS84 coordinates.
 Supports UK National Grid (BNG) and other coordinate systems.
