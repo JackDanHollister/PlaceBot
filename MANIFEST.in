@@ -1,9 +1,8 @@
 include README.md
 include LICENSE
 include requirements.txt
-recursive-include locality_processor *.py
-recursive-include models *.py
-recursive-include config *.env.template
+recursive-include placebot *.py
+recursive-include placebot/data *.md
 exclude tests/*
 exclude results/*
 exclude output/*
