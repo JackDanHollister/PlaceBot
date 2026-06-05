@@ -10,7 +10,7 @@ API_VERSION = "2023-06-01"
 # API Key Configuration
 # IMPORTANT: Add your API key here or set ANTHROPIC_API_KEY environment variable
 # Get your key at: https://console.anthropic.com/
-API_KEY = "your_anthropic_api_key_here"  # Replace with your actual API key
+API_KEY = ""  # Leave blank: set ANTHROPIC_API_KEY in your environment or via the GUI
 
 # Pricing Information (USD) - July 2025
 # Note: Verify current pricing at https://console.anthropic.com/

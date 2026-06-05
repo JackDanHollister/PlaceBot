@@ -9,7 +9,7 @@ API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2
 # API Key Configuration
 # IMPORTANT: Add your API key here or set GOOGLE_API_KEY environment variable
 # Get your key at: https://aistudio.google.com/app/apikey
-API_KEY = "your_google_api_key_here"  # Replace with your actual API key
+API_KEY = ""  # Leave blank: set GOOGLE_API_KEY in your environment or via the GUI
 
 # Pricing Information (USD) with Implicit Caching - July 2025
 # Implicit Caching: Automatic 75% discount on cached input tokens (>2,048 tokens)

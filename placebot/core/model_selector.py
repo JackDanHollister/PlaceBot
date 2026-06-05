@@ -77,6 +77,11 @@ def load_model_profile(model_file: str) -> Optional[Dict[str, Any]]:
             'api_key': api_key,
             'cost_per_1k_input': getattr(module, 'COST_PER_1K_INPUT_TOKENS', 0),
             'cost_per_1k_output': getattr(module, 'COST_PER_1K_OUTPUT_TOKENS', 0),
+            # Per-million pricing consumed by CostEstimator (1k * 1000)
+            'input_cost_per_million': getattr(module, 'COST_PER_1K_INPUT_TOKENS', 0) * 1000,
+            'output_cost_per_million': getattr(module, 'COST_PER_1K_OUTPUT_TOKENS', 0) * 1000,
+            'type': 'local' if 'ollama' in str(getattr(module, 'MODEL_PROVIDER', '')).lower()
+                    or 'qwen' in str(getattr(module, 'MODEL_NAME', '')).lower() else 'cloud',
             'estimated_cost_per_record': getattr(module, 'ESTIMATED_COST_PER_RECORD', 0),
             'max_tokens': getattr(module, 'MAX_TOKENS', 4096),
             'max_output_tokens': getattr(module, 'MAX_OUTPUT_TOKENS', 2000),

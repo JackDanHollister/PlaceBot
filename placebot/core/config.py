@@ -12,6 +12,11 @@ from typing import Dict, Optional
 from dotenv import load_dotenv
 
 
+def get_user_env_path() -> Path:
+    """Return the path to the user-level .env file (``~/.placebot/.env``)."""
+    return Path.home() / '.placebot' / '.env'
+
+
 class Config:
     """Manages configuration and API keys for the locality processor."""
     
@@ -32,16 +37,32 @@ class Config:
         self._load_env_file()
     
     def _load_env_file(self):
-        """Load environment variables from .env file if it exists."""
+        """
+        Load environment variables from .env files.
+
+        Search order (later files override earlier ones):
+          1. <config_dir>/.env          (project config dir)
+          2. <project_root>/.env        (repo checkout)
+          3. ~/.placebot/.env           (user home - used by the GUI)
+
+        The user home file is loaded last with ``override=True`` so that keys
+        entered through the GUI take precedence over any stale project-level
+        ``.env`` left behind in a checkout.
+        """
+        # 1. Project config directory
         env_file = self.config_dir / '.env'
-        
         if env_file.exists():
             load_dotenv(env_file)
-        else:
-            # Also try loading from project root
-            root_env = Path(__file__).parent.parent.parent / '.env'
-            if root_env.exists():
-                load_dotenv(root_env)
+
+        # 2. Project root (editable/source checkout)
+        root_env = Path(__file__).parent.parent.parent / '.env'
+        if root_env.exists():
+            load_dotenv(root_env)
+
+        # 3. User home directory (authoritative - written by the GUI)
+        home_env = get_user_env_path()
+        if home_env.exists():
+            load_dotenv(home_env, override=True)
     
     def get_api_key(self, provider: str) -> Optional[str]:
         """
@@ -89,6 +110,65 @@ class Config:
         keys = self.get_all_api_keys()
         return {provider: bool(key) for provider, key in keys.items()}
     
+    def save_api_key(self, provider: str, api_key: str) -> Path:
+        """
+        Persist an API key to ``~/.placebot/.env`` and load it into the
+        current process.
+
+        Used primarily by the GUI so non-technical users can paste a key once
+        and have it remembered across sessions.
+
+        Args:
+            provider: Provider name (anthropic, openai, google/gemini)
+            api_key: The API key value to store (an empty string removes it)
+
+        Returns:
+            Path to the .env file that was written
+        """
+        key_map = {
+            'anthropic': 'ANTHROPIC_API_KEY',
+            'openai': 'OPENAI_API_KEY',
+            'google': 'GOOGLE_API_KEY',
+            'gemini': 'GOOGLE_API_KEY',
+        }
+        env_var = key_map.get(provider.lower())
+        if not env_var:
+            raise ValueError(f"Unknown provider: {provider}")
+
+        env_path = get_user_env_path()
+        env_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Read existing lines, replacing the relevant key if present
+        lines = []
+        replaced = False
+        if env_path.exists():
+            with open(env_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith(f"{env_var}=") or stripped.startswith(f"{env_var} ="):
+                        if api_key:
+                            lines.append(f"{env_var}={api_key}\n")
+                        replaced = True  # drop the line entirely if key is empty
+                    else:
+                        lines.append(line)
+
+        if not replaced and api_key:
+            if lines and not lines[-1].endswith('\n'):
+                lines.append('\n')
+            lines.append(f"{env_var}={api_key}\n")
+
+        with open(env_path, 'w', encoding='utf-8') as f:
+            f.writelines(lines)
+
+        # Make the new value visible to the running process immediately
+        if api_key:
+            os.environ[env_var] = api_key
+            load_dotenv(env_path, override=True)
+        else:
+            os.environ.pop(env_var, None)
+
+        return env_path
+
     def create_env_template(self):
         """Create a .env template file with placeholder API keys."""
         template_path = self.config_dir / '.env.template'

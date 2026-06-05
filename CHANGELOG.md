@@ -5,6 +5,36 @@ All notable changes to PlaceBot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-05
+
+### Added
+- 🖥️ **Graphical interface** (`placebot-gui`): a lightweight Streamlit app aimed
+  at non-technical users — paste an API key, upload a dataset, pick a model,
+  run, and download CSV/JSON/GeoJSON results. Install with `pip install "placebot[gui]"`.
+- In-app API key management: keys entered in the GUI are saved to
+  `~/.placebot/.env` and remembered between sessions.
+- `progress_callback` hook on `BatchProcessor.process_dataset()` so front-ends
+  can drive a progress bar (backward compatible; CLI unchanged).
+- Real `tests/` suite (pytest) and GitHub Actions CI (test matrix + lint).
+- GitHub Actions release workflow for publishing to PyPI via Trusted Publishing.
+
+### Changed
+- Data directories now live under `~/.placebot/` (input/output/config) instead
+  of inside the installed package, so `pip install` works correctly and data
+  survives upgrades. Override with the `PLACEBOT_HOME` environment variable.
+- API keys are now read from `~/.placebot/.env` in addition to project-level
+  `.env` files.
+
+### Fixed
+- Added missing `requests` runtime dependency (previously only in
+  `requirements.txt`), so `pip install placebot` works out of the box.
+- Model cost estimates are no longer always `$0.00` — per-million pricing is now
+  derived from each model profile.
+- `DatasetPreview.get_statistics()` no longer crashes on ragged CSV rows
+  (`None` column names).
+- Removed placeholder API keys from the 12 model profile files.
+- Corrected the stale `--batch` CLI message and the welcome banner branding.
+
 ## [1.0.0] - 2025-10-16
 
 ### Added

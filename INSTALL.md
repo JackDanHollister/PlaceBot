@@ -15,18 +15,24 @@ python --version  # Should be 3.8+
 
 ### 2. Install PlaceBot
 
+**Option A — Install from PyPI (recommended for most users)**
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/placebot.git
-cd placebot
+# pipx keeps PlaceBot isolated from your other Python tools
+pipx install placebot          # or:  pip install placebot
 
-# Install the package
-pip install -e .
+# With the graphical interface:
+pipx install "placebot[gui]"   # or:  pip install "placebot[gui]"
 ```
 
-**Optional: Install with local model support**
+**Option B — Install from source (for development)**
 ```bash
-pip install -e ".[local]"
+# Clone the repository
+git clone https://github.com/JackDanHollister/PlaceBot.git
+cd PlaceBot
+
+# Install the package (add extras as needed)
+pip install -e ".[gui]"        # graphical interface
+pip install -e ".[local]"      # local Ollama model support
 ```
 
 ### 3. Get API Keys
@@ -43,15 +49,19 @@ You'll need at least ONE API key from these providers:
 
 ### 4. Configure API Keys
 
-```bash
-# Copy the example environment file
-cp .env.example .env
+**Easiest:** launch the graphical interface (`placebot-gui`) and paste your
+key(s) into the sidebar — they are saved to `~/.placebot/.env` automatically
+and remembered between sessions. See [Graphical Interface](#graphical-interface-easiest)
+below.
 
-# Edit .env and add your API key(s)
-nano .env  # or use your preferred editor
+**Manual:** create `~/.placebot/.env` with your key(s):
+
+```bash
+mkdir -p ~/.placebot
+nano ~/.placebot/.env   # or use your preferred editor
 ```
 
-Example `.env` file:
+Example `~/.placebot/.env` file:
 ```env
 # Add at least one API key
 ANTHROPIC_API_KEY=sk-ant-your-key-here
@@ -88,6 +98,38 @@ Expected output:
 ✓ 100% success rate
 ✓ Results saved to output/
 ```
+
+## Graphical Interface (easiest)
+
+If you installed the `gui` extra (`pip install "placebot[gui]"`), you can use
+the point-and-click interface instead of the command line:
+
+```bash
+placebot-gui
+```
+
+This opens PlaceBot in your web browser. From there you can:
+
+1. **Paste your API key** in the sidebar (saved to `~/.placebot/.env`).
+2. **Upload** a CSV/TSV file of localities (or pick one already in your input folder).
+3. **Choose** a processing mode and AI model — costs are shown up front.
+4. **Run** and watch the progress bar.
+5. **Download** your results as CSV, JSON, or GeoJSON.
+
+No terminal knowledge required after the one-time install.
+
+## Where PlaceBot stores your data
+
+PlaceBot keeps its files in your home directory so they survive upgrades:
+
+| Folder | Purpose |
+|--------|---------|
+| `~/.placebot/input/`  | Datasets to process |
+| `~/.placebot/output/` | Results |
+| `~/.placebot/.env`    | Your saved API keys |
+
+Run `placebot --show-dirs` to see the exact paths. Set the `PLACEBOT_HOME`
+environment variable to use a different location.
 
 ## Troubleshooting
 
@@ -169,9 +211,9 @@ Install Ollama for local processing:
 1. Install Ollama: [ollama.com/download](https://ollama.com/download)
 2. Pull Qwen models:
 ```bash
-ollama pull qwen2.5:1.5b
-ollama pull qwen2.5:7b
-ollama pull qwen2.5:14b
+ollama pull qwen3:1.7b
+ollama pull qwen3:8b
+ollama pull qwen3:14b
 ```
 3. Install PlaceBot with local support:
 ```bash
@@ -215,6 +257,6 @@ placebot
 
 ## Getting Help
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/placebot/issues)
-- **Questions**: [GitHub Discussions](https://github.com/yourusername/placebot/discussions)
-- **Email**: your.email@example.com
+- **Issues**: [GitHub Issues](https://github.com/JackDanHollister/PlaceBot/issues)
+- **Questions**: [GitHub Discussions](https://github.com/JackDanHollister/PlaceBot/discussions)
+- **Email**: jack.d.hollister@gmail.com

@@ -23,37 +23,34 @@ This tool is intended to support digitisation, curation, and research workflows 
 ### Installation
 
 ```bash
-# Clone the repository
+# From PyPI (recommended) - includes the graphical interface
+pip install "placebot[gui]"
+
+# Or, for local Ollama model support
+pip install "placebot[local]"
+```
+
+<details>
+<summary>Install from source (for development)</summary>
+
+```bash
 git clone https://github.com/JackDanHollister/PlaceBot.git
 cd PlaceBot
-
-# Install the package
-pip install -e .
-
-# For local model support (optional)
-pip install -e ".[local]"
+pip install -e ".[gui]"
 ```
+</details>
 
-### Configuration
+### Graphical interface (easiest)
 
-1. Copy the example environment file:
 ```bash
-cp .env.example .env
+placebot-gui
 ```
 
-2. Add your API keys to `.env`:
-```env
-ANTHROPIC_API_KEY=your_anthropic_key_here
-OPENAI_API_KEY=your_openai_key_here
-GOOGLE_API_KEY=your_google_key_here
-```
+This opens PlaceBot in your browser. Paste an API key in the sidebar (saved to
+`~/.placebot/.env`), upload a CSV/TSV file, pick a model, run, and download your
+results — no terminal knowledge required.
 
-Get your API keys from:
-- **Anthropic**: https://console.anthropic.com/
-- **OpenAI**: https://platform.openai.com/api-keys
-- **Google**: https://aistudio.google.com/app/apikey
-
-### Basic Usage
+### Command-line usage
 
 ```bash
 # Run the interactive CLI
@@ -69,6 +66,23 @@ The CLI will guide you through:
 3. Loading your data file
 4. Viewing cost estimates
 5. Processing and exporting results
+
+### Configuration (command line)
+
+Add at least one API key to `~/.placebot/.env`:
+```env
+ANTHROPIC_API_KEY=your_anthropic_key_here
+OPENAI_API_KEY=your_openai_key_here
+GOOGLE_API_KEY=your_google_key_here
+```
+
+Get your API keys from:
+- **Anthropic**: https://console.anthropic.com/
+- **OpenAI**: https://platform.openai.com/api-keys
+- **Google**: https://aistudio.google.com/app/apikey
+
+(The GUI writes this file for you.) Run `placebot --show-dirs` to see where
+PlaceBot stores input, output, and configuration.
 
 ## 📋 Input Data Format
 

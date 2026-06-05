@@ -50,8 +50,8 @@ Feature requests are welcome! Please include:
 
 ```bash
 # Clone your fork
-git clone https://github.com/yourusername/placebot.git
-cd placebot
+git clone https://github.com/JackDanHollister/PlaceBot.git
+cd PlaceBot
 
 # Create virtual environment
 python -m venv venv

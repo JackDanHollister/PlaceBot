@@ -411,15 +411,15 @@ def main():
         epilog="""
 Examples:
   # Interactive mode (default)
-  locality-processor
-  
+  placebot
+
+  # Launch the graphical interface
+  placebot-gui
+
   # Specify custom directories
-  locality-processor --input-dir ./data --output-dir ./results
-  
-  # Batch mode (coming soon)
-  locality-processor --batch
-  
-For more information, visit: https://github.com/yourusername/locality-processor
+  placebot --input-dir ./data --output-dir ./results
+
+For more information, visit: https://github.com/JackDanHollister/PlaceBot
 """
     )
     
@@ -452,7 +452,7 @@ For more information, visit: https://github.com/yourusername/locality-processor
     parser.add_argument(
         '--version',
         action='version',
-        version='placebot 1.0.0'
+        version='placebot 1.1.0'
     )
     
     args = parser.parse_args()
@@ -464,8 +464,8 @@ For more information, visit: https://github.com/yourusername/locality-processor
     
     # Check if batch mode is requested
     if args.batch:
-        print("🚧 Batch mode is coming in Phase 3!")
-        print("💡 For now, using interactive real-time mode...\n")
+        print("💡 Batch processing is available — just choose 'Batch' (or "
+              "'Staggered') when prompted for a processing mode.\n")
     
     # Run interactive mode
     try:

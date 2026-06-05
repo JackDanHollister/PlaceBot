@@ -11,13 +11,20 @@ from pathlib import Path
 
 
 def get_placebot_home():
-    """Get PlaceBot's root directory (where the script is installed)."""
-    # Get the directory where this module is located
-    module_dir = Path(__file__).parent
-    # Go up two levels to get to the PlaceBot root directory
-    # From placebot/core/data_dirs.py to PlaceBot root
-    placebot_root = module_dir.parent.parent
-    return placebot_root
+    """
+    Get PlaceBot's user data directory.
+
+    Returns ``~/.placebot`` so that input/output data live in a writable,
+    upgrade-safe location independent of where the package is installed.
+    This is required for ``pip install`` to work, since the package itself
+    may land in a read-only site-packages directory.
+
+    Set the ``PLACEBOT_HOME`` environment variable to override the location.
+    """
+    override = os.environ.get('PLACEBOT_HOME')
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / '.placebot'
 
 
 def get_input_dir():
@@ -42,10 +49,11 @@ def setup_directories():
     output_dir = get_output_dir()
     batch_jobs_dir = get_batch_jobs_dir()
     
-    # Create directories
-    input_dir.mkdir(exist_ok=True)
-    output_dir.mkdir(exist_ok=True)
-    batch_jobs_dir.mkdir(exist_ok=True)
+    # Create directories (parents=True so ~/.placebot itself is created)
+    placebot_home.mkdir(parents=True, exist_ok=True)
+    input_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    batch_jobs_dir.mkdir(parents=True, exist_ok=True)
     
     # Create README in input directory if it doesn't exist
     readme_file = input_dir / 'README.txt'

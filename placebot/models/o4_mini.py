@@ -10,7 +10,7 @@ API_VERSION = "v1"
 # API Key Configuration
 # IMPORTANT: Add your API key here or set OPENAI_API_KEY environment variable
 # Get your key at: https://platform.openai.com/api-keys
-API_KEY = "your_openai_api_key_here"  # Replace with your actual API key
+API_KEY = ""  # Leave blank: set OPENAI_API_KEY in your environment or via the GUI
 
 # Pricing Information (USD) with Automatic Caching - July 2025
 # Prompt Caching: Automatic 50% discount on cached input tokens (>1,024 tokens)
