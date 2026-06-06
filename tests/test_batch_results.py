@@ -44,7 +44,6 @@ def test_extract_first_json_object_tolerates_prose_and_braces_in_strings():
     assert _extract_first_json_object("no json here") is None
 
 
-
 def test_extract_text_from_thinking_multipart():
     # Gemini thinking models can return a non-text "thought" part before the answer
     resp = {"candidates": [{"content": {"parts": [

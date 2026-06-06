@@ -43,3 +43,43 @@ def test_save_key_only_replaces_target_provider(isolated_home):
     reloaded = Config()
     assert reloaded.get_api_key("anthropic") == "sk-ant-AAAAAAAAAAAA"
     assert reloaded.get_api_key("google") == "AIzaBBBBBBBBBBBB"
+
+
+def test_save_multiple_google_keys(isolated_home):
+    cfg = Config()
+    cfg.save_google_api_keys(["AIzaPRIMARY1234567890", "AIzaSECOND1234567890"])
+
+    reloaded = Config()
+    # Primary maps to GOOGLE_API_KEY for backward compatibility
+    assert reloaded.get_api_key("google") == "AIzaPRIMARY1234567890"
+    assert reloaded.get_google_api_keys() == [
+        "AIzaPRIMARY1234567890",
+        "AIzaSECOND1234567890",
+    ]
+
+
+def test_save_google_keys_skips_blanks(isolated_home):
+    cfg = Config()
+    cfg.save_google_api_keys(["AIzaPRIMARY1234567890", "", "  "])
+    assert Config().get_google_api_keys() == ["AIzaPRIMARY1234567890"]
+
+
+def test_save_fewer_google_keys_clears_extra_slots(isolated_home):
+    cfg = Config()
+    cfg.save_google_api_keys(["AIzaPRIMARY1234567890", "AIzaSECOND1234567890"])
+    assert len(Config().get_google_api_keys()) == 2
+
+    # Saving a shorter list should drop the now-unused second slot
+    cfg.save_google_api_keys(["AIzaPRIMARY1234567890"])
+    assert Config().get_google_api_keys() == ["AIzaPRIMARY1234567890"]
+
+
+def test_clearing_google_keys_does_not_disturb_other_providers(isolated_home):
+    cfg = Config()
+    cfg.save_api_key("openai", "sk-proj-1234567890")
+    cfg.save_google_api_keys(["AIzaPRIMARY1234567890", "AIzaSECOND1234567890"])
+
+    cfg.save_google_api_keys([])
+    reloaded = Config()
+    assert reloaded.get_google_api_keys() == []
+    assert reloaded.get_api_key("openai") == "sk-proj-1234567890"

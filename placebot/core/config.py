@@ -64,13 +64,18 @@ class Config:
         if home_env.exists():
             load_dotenv(home_env, override=True)
     
+    # Maximum number of Gemini/Google keys supported (primary + extras).
+    # Mirrors the GOOGLE_API_KEY, GOOGLE_API_KEY_2 ... convention documented
+    # for large-batch processing.
+    MAX_GOOGLE_KEYS = 4
+
     def get_api_key(self, provider: str) -> Optional[str]:
         """
         Get API key for a specific provider.
-        
+
         Args:
             provider: Provider name (anthropic, openai, google)
-            
+
         Returns:
             API key string or None if not found
         """
@@ -80,12 +85,30 @@ class Config:
             'google': 'GOOGLE_API_KEY',
             'gemini': 'GOOGLE_API_KEY',
         }
-        
+
         env_var = key_map.get(provider.lower())
         if not env_var:
             return None
-        
+
         return os.getenv(env_var)
+
+    def get_google_api_keys(self) -> list:
+        """
+        Return all configured Google/Gemini API keys in priority order.
+
+        The primary key lives in ``GOOGLE_API_KEY`` and optional additional
+        keys (used to spread very large jobs across quotas) live in
+        ``GOOGLE_API_KEY_2`` ... ``GOOGLE_API_KEY_N``.
+        """
+        keys = []
+        primary = os.getenv('GOOGLE_API_KEY')
+        if primary:
+            keys.append(primary)
+        for i in range(2, self.MAX_GOOGLE_KEYS + 1):
+            value = os.getenv(f'GOOGLE_API_KEY_{i}')
+            if value:
+                keys.append(value)
+        return keys
     
     def get_all_api_keys(self) -> Dict[str, Optional[str]]:
         """
@@ -135,37 +158,87 @@ class Config:
         if not env_var:
             raise ValueError(f"Unknown provider: {provider}")
 
+        return self._set_env_vars({env_var: api_key})
+
+    def save_google_api_keys(self, api_keys: list) -> Path:
+        """
+        Persist one or more Google/Gemini API keys.
+
+        The first key is stored as ``GOOGLE_API_KEY`` and any additional keys
+        as ``GOOGLE_API_KEY_2`` ... ``GOOGLE_API_KEY_N``. Empty entries are
+        skipped, and any previously stored slot beyond the supplied list is
+        cleared so the GUI can remove keys.
+
+        Args:
+            api_keys: Ordered list of key strings (blank entries are ignored)
+
+        Returns:
+            Path to the .env file that was written
+        """
+        # Drop blank entries but keep order; primary first.
+        cleaned = [k.strip() for k in api_keys if k and k.strip()]
+
+        updates: Dict[str, str] = {}
+        for slot in range(1, self.MAX_GOOGLE_KEYS + 1):
+            env_var = 'GOOGLE_API_KEY' if slot == 1 else f'GOOGLE_API_KEY_{slot}'
+            # Empty string removes the slot from the .env file.
+            updates[env_var] = cleaned[slot - 1] if slot - 1 < len(cleaned) else ''
+
+        return self._set_env_vars(updates)
+
+    def _set_env_vars(self, updates: Dict[str, str]) -> Path:
+        """
+        Write a batch of ``KEY=value`` pairs to ``~/.placebot/.env``.
+
+        An empty value removes the corresponding line. Existing unrelated
+        lines are preserved. New values are also pushed into ``os.environ`` so
+        they take effect immediately within the running process.
+
+        Args:
+            updates: Mapping of environment variable name to value
+
+        Returns:
+            Path to the .env file that was written
+        """
         env_path = get_user_env_path()
         env_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Read existing lines, replacing the relevant key if present
+        remaining = dict(updates)
         lines = []
-        replaced = False
         if env_path.exists():
             with open(env_path, 'r', encoding='utf-8') as f:
                 for line in f:
                     stripped = line.strip()
-                    if stripped.startswith(f"{env_var}=") or stripped.startswith(f"{env_var} ="):
-                        if api_key:
-                            lines.append(f"{env_var}={api_key}\n")
-                        replaced = True  # drop the line entirely if key is empty
+                    matched = None
+                    for env_var in remaining:
+                        if stripped.startswith(f"{env_var}=") or stripped.startswith(f"{env_var} ="):
+                            matched = env_var
+                            break
+                    if matched is not None:
+                        value = remaining.pop(matched)
+                        if value:
+                            lines.append(f"{matched}={value}\n")
+                        # else: drop the line entirely (key removed)
                     else:
                         lines.append(line)
 
-        if not replaced and api_key:
-            if lines and not lines[-1].endswith('\n'):
-                lines.append('\n')
-            lines.append(f"{env_var}={api_key}\n")
+        # Append any keys that weren't already present in the file
+        for env_var, value in remaining.items():
+            if value:
+                if lines and not lines[-1].endswith('\n'):
+                    lines.append('\n')
+                lines.append(f"{env_var}={value}\n")
 
         with open(env_path, 'w', encoding='utf-8') as f:
             f.writelines(lines)
 
-        # Make the new value visible to the running process immediately
-        if api_key:
-            os.environ[env_var] = api_key
-            load_dotenv(env_path, override=True)
-        else:
-            os.environ.pop(env_var, None)
+        # Make the new values visible to the running process immediately
+        for env_var, value in updates.items():
+            if value:
+                os.environ[env_var] = value
+            else:
+                os.environ.pop(env_var, None)
+        load_dotenv(env_path, override=True)
 
         return env_path
 

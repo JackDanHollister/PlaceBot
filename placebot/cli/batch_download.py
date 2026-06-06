@@ -32,89 +32,111 @@ from placebot.core.async_batch_processor import (
 from placebot.core.data_dirs import get_output_dir, get_batch_jobs_dir
 
 
-def download_batch_results(batch_id, batch_dir=None):
-    """Download results from a completed batch job."""
-    
+def find_batch_info(batch_id, batch_dir=None):
+    """Locate and load the ``*_info.json`` file for a given batch id.
+
+    Returns the parsed info dict, or ``None`` if no matching job is found.
+    """
     if batch_dir is None:
         batch_dir = str(get_batch_jobs_dir())
-    
-    # Find the batch info file
-    info_file = None
+
     if os.path.exists(batch_dir):
         for f in os.listdir(batch_dir):
             if f.endswith('_info.json'):
                 path = os.path.join(batch_dir, f)
                 try:
-                    # Skip empty files
                     if os.path.getsize(path) == 0:
                         continue
                     with open(path) as file:
                         info = json.load(file)
-                        if info['batch_id'] == batch_id:
-                            info_file = path
-                            break
+                        if info.get('batch_id') == batch_id:
+                            return info
                 except (json.JSONDecodeError, KeyError):
                     continue
-    
-    if not info_file:
+    return None
+
+
+def build_processor_for_info(info):
+    """Create the right batch processor for a job's provider.
+
+    Returns the processor instance, or ``None`` for an unknown provider.
+    """
+    provider = info['provider'].lower()
+    if 'anthropic' in provider:
+        api_key = os.getenv('ANTHROPIC_API_KEY', '')
+        return AnthropicBatchProcessor(api_key, info['model'])
+    elif 'openai' in provider:
+        api_key = os.getenv('OPENAI_API_KEY', '')
+        return OpenAIBatchProcessor(api_key, info['model'])
+    elif 'google' in provider or 'gemini' in provider:
+        api_key = os.getenv('GOOGLE_API_KEY', '') or os.getenv('GEMINI_API_KEY', '')
+        return GeminiBatchProcessor(api_key, info['model'])
+    return None
+
+
+def fetch_batch_results(batch_id, batch_dir=None):
+    """Download and persist results for a batch job without any printing.
+
+    Designed for programmatic callers such as the GUI. Returns a dict::
+
+        {'success': bool, 'records': [...], 'results_file': str,
+         'info': {...}, 'error': str|None}
+    """
+    info = find_batch_info(batch_id, batch_dir)
+    if not info:
+        return {'success': False, 'error': f"Batch {batch_id} not found"}
+
+    processor = build_processor_for_info(info)
+    if processor is None:
+        return {'success': False, 'error': f"Unknown provider: {info['provider']}", 'info': info}
+
+    try:
+        results = processor.get_results(batch_id)
+    except Exception as e:
+        return {'success': False, 'error': str(e), 'info': info}
+
+    if not results:
+        return {'success': False, 'error': 'No results available yet (batch may still be processing).', 'info': info}
+
+    output_dir = str(get_output_dir())
+    os.makedirs(output_dir, exist_ok=True)
+    results_file = os.path.join(output_dir, f"{info['batch_name']}_results.json")
+    with open(results_file, 'w', encoding='utf-8') as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+
+    return {
+        'success': True,
+        'records': results,
+        'results_file': results_file,
+        'info': info,
+        'error': None,
+    }
+
+
+def download_batch_results(batch_id, batch_dir=None):
+    """Download results from a completed batch job (CLI entry point)."""
+    info = find_batch_info(batch_id, batch_dir)
+    if not info:
         print(f"[ERROR] Batch {batch_id} not found")
         return
-    
-    # Load batch info
-    with open(info_file) as f:
-        info = json.load(f)
-    
+
     print(f"\nDOWNLOADING BATCH RESULTS")
     print("=" * 80)
     print(f"Batch ID: {batch_id}")
     print(f"Name: {info['batch_name']}")
     print(f"Records: {info['record_count']}")
     print()
-    
-    # Get API credentials
-    provider = info['provider'].lower()
-    
-    # Initialize appropriate batch processor
-    if 'anthropic' in provider:
-        api_key = os.getenv('ANTHROPIC_API_KEY', '')
-        processor = AnthropicBatchProcessor(api_key, info['model'])
-    elif 'openai' in provider:
-        api_key = os.getenv('OPENAI_API_KEY', '')
-        processor = OpenAIBatchProcessor(api_key, info['model'])
-    elif 'google' in provider or 'gemini' in provider:
-        from placebot.core.async_batch_processor import GeminiBatchProcessor
-        api_key = os.getenv('GOOGLE_API_KEY', '') or os.getenv('GEMINI_API_KEY', '')
-        processor = GeminiBatchProcessor(api_key, info['model'])
-    else:
-        print(f"[ERROR] Unknown provider: {provider}")
+
+    print("[INFO] Downloading results from API...")
+    result = fetch_batch_results(batch_id, batch_dir)
+
+    if not result['success']:
+        print(f"[ERROR] {result['error']}")
         return
-    
-    # Download results
-    try:
-        print("[INFO] Downloading results from API...")
-        results = processor.get_results(batch_id)
-        
-        if not results:
-            print("[ERROR] No results found")
-            return
-        
-        print(f"[SUCCESS] Downloaded {len(results)} results")
-        
-        # Save results to file
-        output_dir = str(get_output_dir())
-        os.makedirs(output_dir, exist_ok=True)
-        
-        results_file = os.path.join(output_dir, f"{info['batch_name']}_results.json")
-        with open(results_file, 'w', encoding='utf-8') as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-        
-        print(f"[INFO] Results saved to: {results_file}")
-        print(f"\n[SUCCESS] Download complete!")
-        
-    except Exception as e:
-        print(f"[ERROR] Error downloading results: {e}")
-        import traceback
-        traceback.print_exc()
+
+    print(f"[SUCCESS] Downloaded {len(result['records'])} results")
+    print(f"[INFO] Results saved to: {result['results_file']}")
+    print(f"\n[SUCCESS] Download complete!")
 
 
 def main():

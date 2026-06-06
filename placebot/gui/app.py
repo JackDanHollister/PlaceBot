@@ -21,7 +21,10 @@ Design notes
 import io
 import json
 import os
+import platform
+import subprocess
 from datetime import datetime
+from pathlib import Path
 
 import streamlit as st
 
@@ -30,6 +33,7 @@ from placebot.core.data_dirs import (
     setup_directories,
     get_input_dir,
     get_output_dir,
+    get_batch_jobs_dir,
 )
 from placebot.core.file_manager import DatasetManager, OutputManager
 from placebot.core.dataset_preview import DatasetPreview
@@ -46,6 +50,46 @@ PROVIDERS = [
     ("openai", "OpenAI (GPT)"),
     ("google", "Google (Gemini)"),
 ]
+
+LOGO_PATH = Path(__file__).parent / "placebot_logo.png"
+
+
+def get_logo_path():
+    """Return the bundled PlaceBot logo path, or None if it is missing."""
+    return str(LOGO_PATH) if LOGO_PATH.exists() else None
+
+
+def open_in_file_manager(path: str) -> bool:
+    """Open ``path`` in the operating system's file manager.
+
+    The GUI runs locally (Streamlit serves the user's own machine), so we can
+    reveal the output folder directly. Returns True on success.
+    """
+    try:
+        if platform.system() == "Windows":
+            os.startfile(path)  # type: ignore[attr-defined]
+        elif platform.system() == "Darwin":
+            subprocess.Popen(["open", path])
+        else:
+            subprocess.Popen(["xdg-open", path])
+        return True
+    except Exception:
+        return False
+
+
+def render_output_folder_link(label: str = "Output folder"):
+    """Render the output folder path with a button to open it locally."""
+    out_dir = str(get_output_dir())
+    col1, col2 = st.columns([3, 1])
+    col1.caption(f"{label}: `{out_dir}`")
+    if col2.button("Open folder", key=f"open_{label}"):
+        if open_in_file_manager(out_dir):
+            st.toast("Opened output folder in your file browser.")
+        else:
+            st.warning(
+                "Could not open the folder automatically. Copy the path above "
+                "into your file browser."
+            )
 
 
 def _model_needs_key(model_config: dict) -> bool:
@@ -127,42 +171,111 @@ def _load_all_model_configs(model_names: tuple) -> list:
 # ---------------------------------------------------------------------------
 
 
+def _render_single_key(config, provider, label, configured):
+    """Single API-key editor (Anthropic / OpenAI)."""
+    value = st.text_input(
+        f"{label} key",
+        type="password",
+        key=f"key_input_{provider}",
+        placeholder="Paste your API key here",
+        label_visibility="collapsed",
+    )
+    col1, col2 = st.columns(2)
+    if col1.button("Save", key=f"save_{provider}"):
+        if value:
+            config.save_api_key(provider, value)
+            st.success("Saved!")
+            st.rerun()
+        else:
+            st.warning("Enter a key first.")
+    if configured and col2.button("Clear", key=f"clear_{provider}"):
+        config.save_api_key(provider, "")
+        st.rerun()
+
+
+def _render_google_keys(config):
+    """Google/Gemini editor supporting multiple keys for large jobs.
+
+    The primary key is used by every Gemini job; additional keys mirror the
+    ``GOOGLE_API_KEY_2`` ... convention and let you spread very large batch
+    jobs across separate quotas.
+    """
+    existing = config.get_google_api_keys()
+    max_keys = config.MAX_GOOGLE_KEYS
+
+    new_values = []
+    for slot in range(max_keys):
+        current = existing[slot] if slot < len(existing) else ""
+        if slot == 0:
+            field_label = "Primary key (GOOGLE_API_KEY)"
+        else:
+            field_label = (
+                f"Additional key {slot + 1} (GOOGLE_API_KEY_{slot + 1}) — optional"
+            )
+        # Only show extra fields once the preceding slot is filled, to keep the
+        # panel tidy for users who only need one key.
+        if slot > 0 and not (current or new_values[slot - 1]):
+            continue
+        new_values.append(
+            st.text_input(
+                field_label,
+                value=current,
+                type="password",
+                key=f"google_key_{slot}",
+                placeholder="Paste your Gemini API key here",
+            )
+        )
+
+    st.caption(
+        "Add more than one key only if you process very large datasets and "
+        "want to spread the load across separate Gemini quotas."
+    )
+    col1, col2 = st.columns(2)
+    if col1.button("Save", key="save_google"):
+        config.save_google_api_keys(new_values)
+        st.success("Saved!")
+        st.rerun()
+    if existing and col2.button("Clear all", key="clear_google"):
+        config.save_google_api_keys([])
+        st.rerun()
+
+
 def render_sidebar():
-    st.sidebar.header("🔑 API Keys")
+    config = get_config()
+
+    logo = get_logo_path()
+    if logo:
+        st.sidebar.image(logo, use_container_width=True)
+
+    st.sidebar.header("Navigation")
+    page = st.sidebar.radio(
+        "Go to",
+        ["Process data", "Batch downloads"],
+        label_visibility="collapsed",
+        key="page",
+    )
+
+    st.sidebar.divider()
+    st.sidebar.header("API Keys")
     st.sidebar.caption(
         "Keys are saved to `~/.placebot/.env` on your computer and remembered "
         "between sessions. Local (Qwen/Ollama) models need no key."
     )
 
-    config = get_config()
     status = config.check_api_keys()
-
     for provider, label in PROVIDERS:
         configured = status.get(provider, False)
-        badge = "✅ Configured" if configured else "⚠️ Not set"
+        badge = "Configured" if configured else "Not set"
         with st.sidebar.expander(f"{label} — {badge}", expanded=not configured):
-            value = st.text_input(
-                f"{label} key",
-                type="password",
-                key=f"key_input_{provider}",
-                placeholder="Paste your API key here",
-                label_visibility="collapsed",
-            )
-            col1, col2 = st.columns(2)
-            if col1.button("Save", key=f"save_{provider}"):
-                if value:
-                    config.save_api_key(provider, value)
-                    st.success("Saved!")
-                    st.rerun()
-                else:
-                    st.warning("Enter a key first.")
-            if configured and col2.button("Clear", key=f"clear_{provider}"):
-                config.save_api_key(provider, "")
-                st.rerun()
+            if provider == "google":
+                _render_google_keys(config)
+            else:
+                _render_single_key(config, provider, label, configured)
 
     st.sidebar.divider()
-    st.sidebar.caption(f"📂 Data folder: `{get_output_dir()}`")
-    if st.sidebar.button("↩️ Start over"):
+    with st.sidebar:
+        render_output_folder_link("Data folder")
+    if st.sidebar.button("Start over"):
         for k in [
             "step",
             "selected_dataset",
@@ -175,6 +288,8 @@ def render_sidebar():
         ]:
             st.session_state.pop(k, None)
         st.rerun()
+
+    return page
 
 
 # ---------------------------------------------------------------------------
@@ -287,31 +402,15 @@ def step_configure():
     comparisons = ModelComparison.compare_models(configs, num_records, mode)
     comp_by_name = {c["model_name"]: c for c in comparisons}
 
+    import pandas as pd
+
     st.subheader("Available models")
-    rows = []
-    for cfg in configs:
-        comp = comp_by_name.get(cfg.get("name", ""), {})
-        ready = _model_has_key(cfg)
-        rows.append(
-            {
-                "Model": cfg.get("name", cfg.get("_file")),
-                "Vendor": comp.get("vendor", cfg.get("provider", "")),
-                "Est. cost": (
-                    "Free"
-                    if comp.get("is_local")
-                    else f"${comp.get('estimated_cost', 0):.4f}"
-                ),
-                "Est. time (min)": comp.get("estimated_time_minutes", "—"),
-                "Ready": "✅" if ready else "🔑 needs key",
-            }
-        )
-    try:
-        import pandas as pd
+    st.caption(
+        "Tick **Use** to choose the model to run. Models marked *Needs API "
+        "key* must be set up in the sidebar first."
+    )
 
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-    except Exception:
-        st.table(rows)
-
+    file_by_index = [cfg["_file"] for cfg in configs]
     ready_files = [c["_file"] for c in configs if _model_has_key(c)]
     if not ready_files:
         st.warning(
@@ -320,12 +419,66 @@ def step_configure():
         )
         return
 
-    def _label(file_name):
-        cfg = next(c for c in configs if c["_file"] == file_name)
-        return cfg.get("name", file_name)
+    # Persist the chosen model across reruns; default to the first ready model.
+    prev = st.session_state.get("model_file")
+    if prev not in file_by_index:
+        prev = ready_files[0]
 
-    model_file = st.selectbox("Pick a model to use", ready_files, format_func=_label)
+    rows = []
+    for cfg in configs:
+        comp = comp_by_name.get(cfg.get("name", ""), {})
+        ready = _model_has_key(cfg)
+        rows.append(
+            {
+                "Use": cfg["_file"] == prev,
+                "Model": cfg.get("name", cfg.get("_file")),
+                "Vendor": comp.get("vendor", cfg.get("provider", "")),
+                "Est. cost": (
+                    "Free"
+                    if comp.get("is_local")
+                    else f"${comp.get('estimated_cost', 0):.4f}"
+                ),
+                "Est. time (min)": comp.get("estimated_time_minutes", "—"),
+                "Ready": "Yes" if ready else "Needs API key",
+            }
+        )
+
+    edited = st.data_editor(
+        pd.DataFrame(rows),
+        hide_index=True,
+        use_container_width=True,
+        disabled=["Model", "Vendor", "Est. cost", "Est. time (min)", "Ready"],
+        column_config={
+            "Use": st.column_config.CheckboxColumn(
+                "Use",
+                help="Select this single model to run",
+                default=False,
+            ),
+        },
+        # Re-key on the current selection so the editor's accumulated edit
+        # state resets whenever the chosen model changes. Without this, old
+        # ticks linger and the single-select logic can flip back unexpectedly.
+        key=f"model_table_{prev}",
+    )
+
+    # The checkbox column behaves like a radio: resolve a single selection,
+    # preferring any newly-ticked row over the previous choice.
+    checked = [i for i in edited.index if bool(edited.loc[i, "Use"])]
+    selected_file = prev
+    if checked:
+        newly = [file_by_index[i] for i in checked if file_by_index[i] != prev]
+        selected_file = newly[0] if newly else file_by_index[checked[0]]
+    st.session_state.model_file = selected_file
+
+    model_file = selected_file
     model_config = next(c for c in configs if c["_file"] == model_file)
+
+    if not _model_has_key(model_config):
+        st.warning(
+            f"**{model_config.get('name', model_file)}** needs an API key. "
+            "Add one in the sidebar, then it will be ready to run."
+        )
+        return
 
     # --- Cost estimate ---
     cost = CostEstimator.estimate_cost(
@@ -507,13 +660,13 @@ def _show_results():
         return
 
     if res["type"] == "batch":
-        st.success("✅ Batch submitted!")
+        st.success("Batch submitted!")
         st.write(f"**Batch ID:** `{res['batch_id']}`")
         st.write(
             "Your results will be ready within 24 hours (usually much "
-            "faster). Download them later from the command line:"
+            "faster). When it's done, open **Batch downloads** in the sidebar "
+            "to fetch your results — no command line needed."
         )
-        st.code(f"placebot-batch download {res['batch_id']}")
         st.caption(f"Job details saved to: {res['info_file']}")
         return
 
@@ -525,8 +678,9 @@ def _show_results():
         return
 
     records = results.get("processed_records", [])
-    st.success(f"✅ Done! Processed {len(records):,} records.")
+    st.success(f"Done! Processed {len(records):,} records.")
     st.caption(f"Results also saved to: {results.get('output_path', '')}")
+    render_output_folder_link("Output folder")
 
     with st.expander("Summary report"):
         st.text(results.get("summary_report", ""))
@@ -550,11 +704,122 @@ def _show_results():
     for col, fmt in zip(cols, formats):
         mime, ext, builder = builders[fmt]
         col.download_button(
-            f"⬇️ {fmt.upper()}",
+            f"Download {fmt.upper()}",
             data=builder(records),
             file_name=f"{stem}_placebot.{ext}",
             mime=mime,
             key=f"dl_{fmt}",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Batch downloads page
+# ---------------------------------------------------------------------------
+
+
+def _list_batch_jobs():
+    """Return submitted batch jobs (newest first) from the batch_jobs folder."""
+    batch_dir = str(get_batch_jobs_dir())
+    jobs = []
+    if os.path.isdir(batch_dir):
+        for fname in os.listdir(batch_dir):
+            if not fname.endswith("_info.json"):
+                continue
+            path = os.path.join(batch_dir, fname)
+            try:
+                if os.path.getsize(path) == 0:
+                    continue
+                with open(path, encoding="utf-8") as f:
+                    info = json.load(f)
+                if "batch_id" in info:
+                    jobs.append(info)
+            except (json.JSONDecodeError, OSError):
+                continue
+    jobs.sort(key=lambda i: i.get("submitted_at", ""), reverse=True)
+    return jobs
+
+
+def step_batch_downloads():
+    from placebot.cli.batch_download import fetch_batch_results
+
+    st.header("Batch downloads")
+    st.write(
+        "Submitted a batch job? Once it finishes (usually within 24 hours) "
+        "fetch and download the results here — no command line required."
+    )
+
+    jobs = _list_batch_jobs()
+    if not jobs:
+        st.info(
+            "No batch jobs found yet. Submit one from **Process data** using "
+            "the *Batch* processing mode."
+        )
+        return
+
+    labels = [
+        f"{j.get('batch_name', j['batch_id'])} — "
+        f"{j.get('record_count', '?')} records, submitted {j.get('submitted_at', '?')}"
+        for j in jobs
+    ]
+    idx = st.selectbox(
+        "Select a batch job",
+        range(len(jobs)),
+        format_func=lambda i: labels[i],
+    )
+    job = jobs[idx]
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Provider", job.get("provider", "—"))
+    c2.metric("Records", f"{job.get('record_count', 0):,}")
+    c3.metric("Model", job.get("model", "—"))
+    st.caption(f"Batch ID: `{job['batch_id']}`")
+
+    if st.button("Download results", type="primary"):
+        with st.spinner("Fetching results from the provider…"):
+            result = fetch_batch_results(job["batch_id"])
+        st.session_state.batch_dl_result = result
+
+    result = st.session_state.get("batch_dl_result")
+    if not result:
+        return
+    # Only show results for the currently-selected job
+    if result.get("info", {}).get("batch_id") != job["batch_id"]:
+        return
+
+    if not result["success"]:
+        st.warning(result["error"])
+        return
+
+    records = result["records"]
+    st.success(f"Downloaded {len(records):,} records.")
+    st.caption(f"Saved to: {result['results_file']}")
+    render_output_folder_link("Output folder")
+
+    try:
+        import pandas as pd
+
+        st.dataframe(pd.DataFrame(records), use_container_width=True)
+    except Exception:
+        st.write(records[:50])
+
+    st.subheader("Download")
+    formats = job.get("output_formats") or ["csv"]
+    builders = {
+        "csv": ("text/csv", "csv", records_to_csv_bytes),
+        "json": ("application/json", "json", records_to_json_bytes),
+        "geojson": ("application/geo+json", "geojson", records_to_geojson_bytes),
+    }
+    formats = [f for f in formats if f in builders] or ["csv"]
+    stem = job.get("batch_name", "placebot")
+    cols = st.columns(len(formats))
+    for col, fmt in zip(cols, formats):
+        mime, ext, builder = builders[fmt]
+        col.download_button(
+            f"Download {fmt.upper()}",
+            data=builder(records),
+            file_name=f"{stem}.{ext}",
+            mime=mime,
+            key=f"batch_dl_{fmt}",
         )
 
 
@@ -564,13 +829,26 @@ def _show_results():
 
 
 def main():
-    st.set_page_config(page_title="PlaceBot", page_icon="🌍", layout="wide")
+    logo = get_logo_path()
+    st.set_page_config(
+        page_title="PlaceBot",
+        page_icon=logo or "🌍",
+        layout="wide",
+    )
     setup_directories()
 
-    st.title("🌍 PlaceBot")
-    st.caption("Turn locality descriptions into geographic coordinates.")
+    header_cols = st.columns([1, 6])
+    if logo:
+        header_cols[0].image(logo, width=90)
+    with header_cols[1]:
+        st.title("PlaceBot")
+        st.caption("Turn locality descriptions into geographic coordinates.")
 
-    render_sidebar()
+    page = render_sidebar()
+
+    if page == "Batch downloads":
+        step_batch_downloads()
+        return
 
     step = st.session_state.get("step", "dataset")
     dataset_manager = DatasetManager(

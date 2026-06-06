@@ -67,4 +67,4 @@ include = ["placebot*"]
 exclude = ["tests*", "results*", "output*", "input*"]
 
 [tool.setuptools.package-data]
-placebot = ["data/*.md"]
+placebot = ["data/*.md", "gui/*.png"]

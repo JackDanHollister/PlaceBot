@@ -2,23 +2,23 @@
   <img src="doc/placebot_logo.png" alt="PlaceBot Logo" width="300"/>
 </p>
 
-# 🌍 PlaceBot - Multi-Vendor AI Locality Processor
+# PlaceBot - Multi-Vendor AI Locality Processor
 
 PlaceBot is a lightweight tool designed to convert verbatim locality descriptions, such as those found on natural history specimen labels, into standardised geographic coordinates (latitude and longitude). It uses modern natural language processing (NLP) and large language model (LLM) techniques to interpret descriptive place names, estimate coordinates, convert grid references, and assess confidence levels.
 
 This tool is intended to support digitisation, curation, and research workflows by automating a key step in georeferencing legacy specimen data.
 
-## ✨ Key Features
+## Key Features
 
-- **🤖 12 AI Models**: Claude (3 models), OpenAI (3 models), Gemini (3 models), Qwen Local (3 models)
-- **💰 Cost Optimization**: Up to 90% savings with advanced caching strategies
-- **⚡ Batch Processing**: 50% cost reduction using async batch APIs
-- **🎯 High Accuracy**: 97-100% success rate on coordinate extraction
-- **🔒 Privacy Options**: Local Qwen models for offline processing
-- **📊 Performance Tracking**: Built-in benchmarking and comparison tools
-- **🚀 Production Ready**: Tested on 100+ records, scales to thousands
+- **12 AI Models**: Claude (3 models), OpenAI (3 models), Gemini (3 models), Qwen Local (3 models)
+- **Cost Optimisation**: Up to 90% savings with advanced caching strategies
+- **Batch Processing**: 50% cost reduction using asynchronous batch APIs
+- **High Accuracy**: 97-100% success rate on coordinate extraction
+- **Privacy Options**: Local Qwen models for offline processing
+- **Performance Tracking**: Built-in benchmarking and comparison tools
+- **Production Ready**: Tested on 100+ records, scales to thousands
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -46,9 +46,17 @@ pip install -e ".[gui]"
 placebot-gui
 ```
 
-This opens PlaceBot in your browser. Paste an API key in the sidebar (saved to
-`~/.placebot/.env`), upload a CSV/TSV file, pick a model, run, and download your
-results — no terminal knowledge required.
+This opens PlaceBot in your browser. From the graphical interface you can:
+
+- Paste your API keys in the sidebar (saved to `~/.placebot/.env`), including
+  multiple Gemini keys for very large jobs.
+- Upload a CSV/TSV file and preview it.
+- Pick a model directly from the comparison table.
+- Run in real-time or submit a batch job.
+- Download completed batch results without opening a terminal.
+- Open your output folder in the file browser with one click.
+
+No terminal knowledge is required.
 
 ### Command-line usage
 
@@ -81,10 +89,10 @@ Get your API keys from:
 - **OpenAI**: https://platform.openai.com/api-keys
 - **Google**: https://aistudio.google.com/app/apikey
 
-(The GUI writes this file for you.) Run `placebot --show-dirs` to see where
-PlaceBot stores input, output, and configuration.
+(The graphical interface writes this file for you.) Run `placebot --show-dirs`
+to see where PlaceBot stores input, output, and configuration.
 
-## 📋 Input Data Format
+## Input Data Format
 
 PlaceBot accepts TSV or CSV files with locality descriptions:
 
@@ -94,8 +102,7 @@ locality_id	locality_description
 2	"UK, Scotland, Edinburgh, Royal Botanic Garden"
 ```
 
-
-## 🎯 Model Comparison
+## Model Comparison
 
 PlaceBot ships 12 model profiles across 4 vendors. Speed/accuracy figures are
 indicative (measured on earlier model versions); cost is the per-token list
@@ -116,7 +123,7 @@ price tier. Verify current pricing with each provider.
 | **Qwen** | 3 14B (local) | **FREE** | Best local |
 | **Qwen** | 3 8B (local) | **FREE** | Offline balance |
 
-## 💡 Advanced Features
+## Advanced Features
 
 ### Batch Processing
 
@@ -132,7 +139,10 @@ Batch processing is ideal for:
 - Large biodiversity datasets
 - Any dataset where 24-hour processing time is acceptable
 
-### Cost Optimization
+Batch jobs submitted from the graphical interface can also be downloaded there
+from the **Batch downloads** page once they complete.
+
+### Cost Optimisation
 
 PlaceBot implements multiple cost-saving strategies:
 
@@ -143,17 +153,17 @@ PlaceBot implements multiple cost-saving strategies:
 
 **2. Batch API Processing** (50% discount)
 - Available for all 3 cloud vendors
-- Async processing with 24-hour completion
+- Asynchronous processing with 24-hour completion
 - Automatic retry and error handling
 
 **3. Smart Model Selection**
 - Cost estimator shows price before processing
-- Model comparison tool helps choose optimal model
+- Model comparison tool helps choose the optimal model
 - Local models available for zero API costs
 
 ### Multi-API Key Support
 
-For processing very large datasets, you can use multiple API keys:
+For processing very large datasets, you can configure multiple Gemini API keys:
 
 ```env
 GOOGLE_API_KEY=your_primary_key
@@ -161,9 +171,11 @@ GOOGLE_API_KEY_2=your_secondary_key
 GOOGLE_API_KEY_3=your_tertiary_key
 ```
 
-PlaceBot will automatically distribute the load across available keys.
+These can be entered directly in the graphical interface (under the Google
+section of the sidebar) or added to `~/.placebot/.env` by hand. Additional keys
+let you spread very large jobs across separate Gemini quotas.
 
-## 📊 Output Formats
+## Output Formats
 
 Choose from multiple output formats:
 
@@ -186,7 +198,7 @@ Example output:
 }
 ```
 
-## 🔧 Development
+## Development
 
 ### Project Structure
 
@@ -199,7 +211,7 @@ placebot/
 │   │   └── user_interface.py # Interactive prompts
 │   ├── core/             # Core processing modules
 │   │   ├── ai_processor.py      # AI model integration
-│   │   ├── batch_processor.py   # Async batch processing
+│   │   ├── batch_processor.py   # Asynchronous batch processing
 │   │   ├── async_batch_processor.py  # Advanced batch logic
 │   │   ├── config.py            # API key management
 │   │   ├── cost_estimator.py    # Cost calculations
@@ -208,6 +220,7 @@ placebot/
 │   │   ├── output_formatter.py  # Export formats
 │   │   ├── coordinate_utils.py  # Coordinate validation
 │   │   └── file_manager.py      # File I/O operations
+│   ├── gui/              # Streamlit graphical interface
 │   └── models/           # AI model implementations
 │       ├── claude_*.py   # Claude model configs
 │       ├── gpt_*.py      # OpenAI model configs
@@ -231,10 +244,7 @@ pytest tests/
 pytest --cov=placebot tests/
 ```
 
-
-
-
-## 📈 Performance Metrics
+## Performance Metrics
 
 Based on testing with 100+ records:
 
@@ -253,14 +263,14 @@ Based on testing with 100+ records:
 - **Batch Processing**: Additional 50% discount
 - **Local Models**: $0 (free)
 
-## 🏗️ Architecture
+## Architecture
 
 PlaceBot uses a modular architecture:
 
 1. **CLI Layer**: User interaction and input validation
 2. **Processing Layer**: AI model orchestration and coordination
 3. **Model Layer**: Individual model implementations
-4. **Caching Layer**: Prompt caching and optimization
+4. **Caching Layer**: Prompt caching and optimisation
 5. **Output Layer**: Result formatting and export
 
 ### Caching Strategy
@@ -277,15 +287,15 @@ Each vendor has different caching capabilities:
 - Automatic prompt caching
 - 5-10 minute TTL
 - No configuration required
-- Best for: Simple integration, automatic optimization
+- Best for: Simple integration, automatic optimisation
 
 **Gemini (Google)**:
 - Explicit caching with `cached_content` API
-- 1-hour default TTL (customizable)
+- 1-hour default TTL (customisable)
 - Requires 1024-2048+ tokens depending on model
 - Best for: Long-running batch jobs
 
-## 🤝 Use Cases
+## Use Cases
 
 PlaceBot is ideal for:
 
@@ -295,7 +305,7 @@ PlaceBot is ideal for:
 - **Field Research**: Converting field notes to coordinates
 - **Data Migration**: Bulk processing of legacy locality data
 
-## 📝 Citation
+## Citation
 
 If you use PlaceBot in your research, please cite:
 
@@ -308,12 +318,12 @@ If you use PlaceBot in your research, please cite:
 }
 ```
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-
-
 ---
 
-**Made with ❤️ for the biodiversity and research community**
+Made for the biodiversity and research community.
+</content>
+</invoke>
