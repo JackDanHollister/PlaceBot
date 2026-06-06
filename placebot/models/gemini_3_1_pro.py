@@ -59,7 +59,11 @@ def format_request(prompt: str, max_tokens: int = MAX_OUTPUT_TOKENS, cached_cont
         "generationConfig": {
             "temperature": 0.1,
             "maxOutputTokens": min(max_tokens, MAX_OUTPUT_TOKENS),
-            "responseMimeType": "application/json"
+            "responseMimeType": "application/json",
+            # Pro is a reasoning model; use a low thinking level so it reliably
+            # returns the JSON answer for this structured extraction task rather
+            # than spending the turn thinking (finishReason=STOP, no output).
+            "thinkingConfig": {"thinkingLevel": "low"}
         }
     }
     return request_body

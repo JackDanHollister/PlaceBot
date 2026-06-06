@@ -452,7 +452,7 @@ For more information, visit: https://github.com/JackDanHollister/PlaceBot
     parser.add_argument(
         '--version',
         action='version',
-        version='placebot 1.2.4'
+        version='placebot 1.2.5'
     )
     
     args = parser.parse_args()

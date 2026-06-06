@@ -5,6 +5,23 @@ All notable changes to PlaceBot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-06-06
+
+### Fixed
+- **Gemini 3.1 Pro batches intermittently returned no result for some records**
+  (`finishReason=STOP`, no JSON). Pro is a reasoning model and, with no thinking
+  control, spent the turn thinking instead of emitting the answer. Gemini
+  requests now set `thinkingConfig.thinkingLevel="low"` for Pro (batch and
+  real-time) so it reliably returns the structured answer. Flash is unchanged.
+- **Batch status used the wrong state enum.** The live API returns
+  `BATCH_STATE_*` names but the code checked `JOB_STATE_SUCCEEDED`, so a
+  completed batch could read as "not ready" and a running one warned
+  confusingly. Status is now matched by substring (handles both prefixes), and
+  the SDK's "not a valid JobState" warning is suppressed.
+- **CSV now opens correctly in Excel.** Output CSVs are written as UTF-8 with a
+  BOM (`utf-8-sig`) so Excel on Windows shows accented locality names
+  (e.g. "Rhône") instead of mojibake ("RhÃ´ne").
+
 ## [1.2.4] - 2026-06-06
 
 ### Fixed

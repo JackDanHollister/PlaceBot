@@ -108,3 +108,25 @@ def test_output_filename_not_truncated_by_dots_in_model_name():
     base = os.path.join(tempfile.mkdtemp(), "ai_test_Gemini_3.1_Pro_20260606_results")
     path = OutputFormatter.to_csv([{"Barcode": "1", "Latitude": 1.0, "Longitude": 2.0}], base)
     assert os.path.basename(path) == "ai_test_Gemini_3.1_Pro_20260606_results.csv"
+
+
+def test_gemini_batch_generation_config_thinking_low_for_pro_only():
+    # Build the config without constructing a real genai client
+    from placebot.core.async_batch_processor import GeminiBatchProcessor
+
+    pro = object.__new__(GeminiBatchProcessor)
+    pro.model_id = "gemini-3.1-pro-preview"
+    cfg = pro._generation_config()
+    assert cfg["responseMimeType"] == "application/json"
+    assert cfg["thinkingConfig"] == {"thinkingLevel": "low"}
+
+    flash = object.__new__(GeminiBatchProcessor)
+    flash.model_id = "gemini-3.5-flash"
+    assert "thinkingConfig" not in flash._generation_config()
+
+
+def test_gemini_pro_realtime_sets_low_thinking():
+    import placebot.models.gemini_3_1_pro as pro
+    cfg = pro.format_request("x")["generationConfig"]
+    assert cfg["thinkingConfig"]["thinkingLevel"] == "low"
+    assert cfg["responseMimeType"] == "application/json"

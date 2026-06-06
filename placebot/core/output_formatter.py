@@ -54,8 +54,10 @@ class OutputFormatter:
         fieldnames = [col for col in desired_order if col in fieldnames] + \
                      sorted([col for col in fieldnames if col not in desired_order])
         
-        # Write CSV
-        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+        # Write CSV with a UTF-8 BOM (utf-8-sig) so Excel on Windows auto-detects
+        # the encoding and shows accented locality names (e.g. "Rhône") correctly
+        # instead of mojibake ("RhÃ´ne").
+        with open(output_path, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(data)

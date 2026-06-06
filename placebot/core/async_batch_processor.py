@@ -752,8 +752,33 @@ class GeminiBatchProcessor:
         self.model_id = model_id
         self.client = genai.Client(api_key=api_key)
         self.batch_jobs = {}
-        
+
+        # The google-genai SDK warns "BATCH_STATE_* is not a valid JobState"
+        # because the live API uses BATCH_STATE_* names the SDK enum doesn't
+        # know yet. The warning is harmless; suppress it to avoid confusion.
+        import warnings
+        warnings.filterwarnings('ignore', message=r'.*is not a valid JobState.*')
+
         print("[SUCCESS] GeminiBatchProcessor initialized")
+
+    def _generation_config(self) -> dict:
+        """Build the generationConfig for batch requests.
+
+        - Forces JSON output to match the real-time path.
+        - Caps output tokens.
+        - For Pro (a reasoning model) sets a LOW thinking level so it reliably
+          returns the JSON answer instead of spending the turn thinking, which
+          intermittently yields finishReason=STOP with no parseable output.
+          Gated to Pro so Flash (which works at 5/5) is left unchanged.
+        """
+        config = {
+            "responseMimeType": "application/json",
+            "maxOutputTokens": 8192,
+        }
+        if 'pro' in (self.model_id or '').lower():
+            config["thinkingConfig"] = {"thinkingLevel": "low"}
+        return config
+
     
     def prepare_batch_file(self, records: List[Dict[str, Any]], 
                           prompt_template: str,
@@ -792,9 +817,7 @@ class GeminiBatchProcessor:
                             }],
                             "role": "user"
                         }],
-                        "generationConfig": {
-                            "responseMimeType": "application/json"
-                        }
+                        "generationConfig": self._generation_config()
                     }
                 }
                 f.write(json.dumps(request, ensure_ascii=False) + '\n')
@@ -1192,9 +1215,7 @@ class GeminiBatchProcessor:
                         "key": str(barcode),
                         "request": {
                             "contents": contents,
-                            "generationConfig": {
-                                "responseMimeType": "application/json"
-                            }
+                            "generationConfig": self._generation_config()
                         }
                     }
                     temp_file.write(json.dumps(jsonl_entry, ensure_ascii=False) + '\n')
@@ -1263,16 +1284,23 @@ class GeminiBatchProcessor:
             batch_job = self.client.batches.get(name=batch_id)
             
             # Map Gemini states to standard format
-            state_mapping = {
-                'JOB_STATE_PENDING': 'pending',
-                'JOB_STATE_RUNNING': 'running',
-                'JOB_STATE_SUCCEEDED': 'completed',
-                'JOB_STATE_FAILED': 'failed',
-                'JOB_STATE_CANCELLED': 'cancelled',
-                'JOB_STATE_EXPIRED': 'expired'
-            }
-            
-            status = state_mapping.get(batch_job.state.name, 'unknown')
+            # Match by substring so both JOB_STATE_* and BATCH_STATE_* (the live
+            # API's newer names) are handled.
+            state_name = (batch_job.state.name or '').upper()
+            if 'SUCCEEDED' in state_name:
+                status = 'completed'
+            elif 'FAILED' in state_name:
+                status = 'failed'
+            elif 'CANCEL' in state_name:
+                status = 'cancelled'
+            elif 'EXPIRED' in state_name:
+                status = 'expired'
+            elif 'RUNNING' in state_name:
+                status = 'running'
+            elif 'PENDING' in state_name:
+                status = 'pending'
+            else:
+                status = 'unknown'
             
             # Try to get counts if available
             total = 0
@@ -1341,8 +1369,9 @@ class GeminiBatchProcessor:
             # Get batch job
             batch_job = self.client.batches.get(name=batch_id)
             
-            # Check if succeeded
-            if batch_job.state.name != 'JOB_STATE_SUCCEEDED':
+            # Check if succeeded (match by substring so both JOB_STATE_* and the
+            # live API's BATCH_STATE_* names are recognised)
+            if 'SUCCEEDED' not in (batch_job.state.name or '').upper():
                 print(f"   [WARNING] Batch not ready: {batch_job.state.name}")
                 return []
             
