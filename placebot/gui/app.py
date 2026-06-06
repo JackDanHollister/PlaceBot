@@ -204,27 +204,29 @@ def _render_google_keys(config):
     max_keys = config.MAX_GOOGLE_KEYS
 
     new_values = []
+    prev_value = None  # value of the previously rendered slot
     for slot in range(max_keys):
         current = existing[slot] if slot < len(existing) else ""
+        # Show the next optional slot only once the preceding one is filled,
+        # to keep the panel tidy for users who only need a single key. Stop as
+        # soon as we hit an empty trailing slot.
+        if slot > 0 and not current and not prev_value:
+            break
         if slot == 0:
             field_label = "Primary key (GOOGLE_API_KEY)"
         else:
             field_label = (
                 f"Additional key {slot + 1} (GOOGLE_API_KEY_{slot + 1}) — optional"
             )
-        # Only show extra fields once the preceding slot is filled, to keep the
-        # panel tidy for users who only need one key.
-        if slot > 0 and not (current or new_values[slot - 1]):
-            continue
-        new_values.append(
-            st.text_input(
-                field_label,
-                value=current,
-                type="password",
-                key=f"google_key_{slot}",
-                placeholder="Paste your Gemini API key here",
-            )
+        value = st.text_input(
+            field_label,
+            value=current,
+            type="password",
+            key=f"google_key_{slot}",
+            placeholder="Paste your Gemini API key here",
         )
+        new_values.append(value)
+        prev_value = value
 
     st.caption(
         "Add more than one key only if you process very large datasets and "
