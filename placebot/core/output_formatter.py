@@ -98,25 +98,26 @@ class OutputFormatter:
         # Ensure .geojson extension
         output_path = str(Path(output_path).with_suffix('.geojson'))
         
+        coord_keys = ('Latitude', 'latitude', 'lat', 'Longitude', 'longitude', 'lon', 'long')
         features = []
         for record in data:
-            # Extract coordinates
-            lat = record.get('latitude') or record.get('lat')
-            lon = record.get('longitude') or record.get('lon') or record.get('long')
-            
+            # Extract coordinates (handle both capitalised and lowercase keys)
+            lat = record.get('Latitude') or record.get('latitude') or record.get('lat')
+            lon = (record.get('Longitude') or record.get('longitude')
+                   or record.get('lon') or record.get('long'))
+
             # Skip records without valid coordinates
-            if lat is None or lon is None:
+            if lat is None or lon is None or lat == '' or lon == '':
                 continue
-            
+
             try:
                 lat_float = float(lat)
                 lon_float = float(lon)
             except (ValueError, TypeError):
                 continue
-            
+
             # Create properties (all fields except coordinates)
-            properties = {k: v for k, v in record.items() 
-                         if k not in ['latitude', 'lat', 'longitude', 'lon', 'long']}
+            properties = {k: v for k, v in record.items() if k not in coord_keys}
             
             # Create GeoJSON feature
             feature = {

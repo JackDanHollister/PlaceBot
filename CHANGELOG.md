@@ -5,6 +5,27 @@ All notable changes to PlaceBot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-06-06
+
+### Fixed
+- **Batch download dropped records.** When a Gemini batch result line failed to
+  parse, it was only printed and never added to the results, so records went
+  missing silently (e.g. 3 of 5 returned) and the failure count read 0. The
+  parser now accounts for every record (success or failure with a reason).
+- **Thinking-model responses now parse.** Gemini 3.x Pro returns multi-part
+  responses (a non-text "thought" part plus the answer); the old parser blindly
+  read `parts[0].text` and raised "list indices must be integers...". Text is
+  now extracted by scanning all parts, tolerant of `content` being a dict or a
+  bare list.
+- **Batch download ignored the chosen output format.** It always wrote
+  `_results.json` regardless of the CSV/JSON/GeoJSON selection. It now honours
+  the formats chosen at submission, merges results back with the source
+  dataset's columns (e.g. original locality text), and writes to
+  `~/.placebot/output` instead of the install directory.
+- **GeoJSON export produced no features.** `OutputFormatter.to_geojson` only
+  looked for lowercase `latitude`/`longitude`, but records use `Latitude`/
+  `Longitude`, so every feature was skipped. It now accepts both.
+
 ## [1.2.2] - 2026-06-06
 
 ### Fixed

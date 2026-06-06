@@ -30,7 +30,60 @@ from placebot.core.async_batch_processor import (
     OpenAIBatchProcessor,
 )
 from placebot.core.async_batch_processor import GeminiBatchProcessor
-from placebot.core.data_dirs import get_batch_jobs_dir
+from placebot.core.data_dirs import get_batch_jobs_dir, get_input_dir, get_output_dir
+from placebot.core.file_manager import DatasetManager
+from placebot.core.output_formatter import OutputFormatter
+
+
+def _load_source_records(dataset_filename):
+    """Load the original dataset (if still present) indexed by barcode/ID,
+    so downloaded batch results can be merged back with the source columns."""
+    index = {}
+    if not dataset_filename:
+        return index
+    try:
+        dm = DatasetManager(input_folder=str(get_input_dir()),
+                            output_folder=str(get_output_dir()))
+        for ds in dm.discover_datasets():
+            if ds['filename'] == dataset_filename:
+                for rec in dm.load_dataset(ds):
+                    bc = rec.get('Barcode') or rec.get('barcode') or rec.get('ID')
+                    if bc is not None:
+                        index[str(bc)] = rec
+                break
+    except Exception as e:
+        print(f"   ⚠️  Could not load source dataset for merge: {e}")
+    return index
+
+
+def _results_to_records(results, source_index):
+    """Map raw batch results into the standard output schema, merging the
+    original dataset columns where available. Every result yields one record."""
+    records = []
+    for r in results:
+        barcode = str(r.get('barcode', ''))
+        rec = dict(source_index.get(barcode, {}))
+        rec.setdefault('Barcode', barcode)
+        if r.get('success'):
+            rec.update({
+                'Country_Processed': r.get('country', ''),
+                'State': r.get('state', ''),
+                'Region': r.get('region', ''),
+                'Sector': r.get('sector', ''),
+                'Exact_Site': r.get('exact_site', ''),
+                'Latitude': r.get('latitude'),
+                'Longitude': r.get('longitude'),
+                'Coordinate_Source': r.get('coordinate_source', ''),
+                'Coordinate_Radius_Meters': r.get('coordinate_radius_meters'),
+                'Elevation': r.get('elevation_meters'),
+                'Confidence': r.get('confidence', 'medium'),
+                'Processing_Notes': r.get('notes', ''),
+            })
+        else:
+            rec['Confidence'] = 'low'
+            rec['Processing_Notes'] = f"Batch processing failed: {r.get('error', 'unknown')}"
+        records.append(rec)
+    return records
 
 
 def get_batch_processor(provider, api_key, model_id):
@@ -188,22 +241,33 @@ def download_job(batch_id, batch_dir=None):
     print(f"\n📥 Downloading results...")
     try:
         results = processor.get_results(batch_id)
-        
-        # Save results to output directory
-        output_dir = Path(__file__).parent.parent.parent / 'output'
-        output_dir.mkdir(exist_ok=True)
-        output_file = output_dir / f"{job_info['batch_name']}_results.json"
-        
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-        
+
+        # Map results into the standard schema, merging original dataset columns
+        source_index = _load_source_records(job_info.get('dataset'))
+        records = _results_to_records(results, source_index)
+
+        # Honour the output formats chosen at submission time (default to CSV)
+        formats = job_info.get('output_formats') or ['csv']
+
+        output_dir = get_output_dir()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        base_path = str(output_dir / f"{job_info['batch_name']}_results")
+
+        written = OutputFormatter.write_output(records, base_path, formats)
+
         success_count = sum(1 for r in results if r.get('success'))
-        print(f"✅ Downloaded {len(results)} results ({success_count} successful)")
-        print(f"💾 Saved to: {output_file}")
+        total = len(results)
+        print(f"✅ Downloaded {total} results ({success_count}/{total} successful)")
+        if success_count < total:
+            print(f"   ⚠️  {total - success_count} record(s) failed - see Processing_Notes")
+        for fmt, path in written.items():
+            print(f"💾 {fmt.upper()}: {path}")
         return True
-        
+
     except Exception as e:
         print(f"❌ Error downloading: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 

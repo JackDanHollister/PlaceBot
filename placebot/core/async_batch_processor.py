@@ -66,6 +66,50 @@ def build_coordinate_context_for_prompt(record: Dict[str, Any]) -> str:
     return "\n\nNO EXISTING COORDINATES: Please estimate coordinates from locality if possible"
 
 
+def _strip_markdown_fences(text: str) -> str:
+    """Strip leading/trailing ``` / ```json fences from a model response."""
+    text = (text or "").strip()
+    if text.startswith('```'):
+        text = text.split('\n', 1)[1] if '\n' in text else text[3:]
+    if text.endswith('```'):
+        text = text.rsplit('\n', 1)[0] if '\n' in text else text[:-3]
+    return text.strip()
+
+
+def _extract_gemini_text_from_dict(response) -> str:
+    """
+    Extract concatenated text from a Gemini REST response dict.
+
+    Tolerant of thinking-model responses (which can include non-text "thought"
+    parts), of `content` being a dict or a bare list of parts, and of missing
+    keys - returns "" rather than raising, so a single odd record never crashes
+    the whole download.
+    """
+    if not isinstance(response, dict):
+        return ""
+    candidates = response.get('candidates')
+    if not isinstance(candidates, list) or not candidates:
+        return ""
+    cand = candidates[0] if isinstance(candidates[0], dict) else {}
+    content = cand.get('content')
+    if isinstance(content, dict):
+        parts = content.get('parts') or []
+    elif isinstance(content, list):
+        parts = content
+    else:
+        parts = []
+    texts = [p.get('text', '') for p in parts if isinstance(p, dict) and p.get('text')]
+    return "".join(texts).strip()
+
+
+def _gemini_finish_reason(response) -> str:
+    """Best-effort extraction of the finishReason from a Gemini response dict."""
+    try:
+        return (response.get('candidates') or [{}])[0].get('finishReason', '')
+    except Exception:
+        return ''
+
+
 class AnthropicBatchProcessor:
     """Handles async batch processing for Anthropic Claude models."""
     
@@ -1239,58 +1283,71 @@ class GeminiBatchProcessor:
                 # Parse JSONL
                 import json
                 for line in file_content.strip().split('\n'):
+                    if not line.strip():
+                        continue
+                    barcode = 'unknown'
                     try:
                         result = json.loads(line)
-                        
-                        # Extract the key and response
                         barcode = result.get('key', 'unknown')
-                        
-                        if 'response' in result and result['response'].get('candidates'):
-                            # Get the text response
-                            text = result['response']['candidates'][0]['content']['parts'][0]['text']
-                            
-                            # Strip markdown code blocks if present
-                            text = text.strip()
-                            if text.startswith('```'):
-                                # Remove ```json or ``` at start
-                                text = text.split('\n', 1)[1] if '\n' in text else text[3:]
-                            if text.endswith('```'):
-                                # Remove ``` at end
-                                text = text.rsplit('\n', 1)[0] if '\n' in text else text[:-3]
-                            text = text.strip()
-                            
-                            # Try to parse as JSON
+
+                        # Robustly extract text (handles thinking-model multi-part
+                        # responses and shape variations)
+                        text = _extract_gemini_text_from_dict(result.get('response'))
+
+                        if text:
+                            text = _strip_markdown_fences(text)
                             try:
                                 parsed_json = json.loads(text)
                                 parsed_json['barcode'] = barcode
                                 parsed_json['success'] = True
                                 results.append(parsed_json)
                             except json.JSONDecodeError:
-                                # If not JSON, return as raw text
                                 results.append({
                                     'barcode': barcode,
                                     'success': False,
                                     'error': 'JSON parse error',
                                     'raw_response': text
                                 })
-                        elif 'error' in result:
+                        elif isinstance(result.get('error'), dict):
                             results.append({
                                 'barcode': barcode,
                                 'success': False,
                                 'error': result['error'].get('message', 'Unknown error')
                             })
+                        else:
+                            # No text and no error block - surface the finish reason
+                            finish = _gemini_finish_reason(result.get('response'))
+                            results.append({
+                                'barcode': barcode,
+                                'success': False,
+                                'error': f'No text in response (finishReason={finish or "unknown"})'
+                            })
                     except Exception as e:
+                        # Never silently drop a record - account for every line
                         print(f"   ⚠️  Error parsing line: {e}")
-                        
+                        results.append({
+                            'barcode': barcode,
+                            'success': False,
+                            'error': f'parse_failed: {e}'
+                        })
+
             elif batch_job.dest and batch_job.dest.inlined_responses:
                 print(f"   📝 Processing inline responses...")
                 for response in batch_job.dest.inlined_responses:
                     try:
-                        if response.response and response.response.candidates:
-                            text = response.response.candidates[0].content.parts[0].text
-                            
+                        text = ""
+                        resp = getattr(response, 'response', None)
+                        candidates = getattr(resp, 'candidates', None) if resp else None
+                        if candidates:
+                            content = getattr(candidates[0], 'content', None)
+                            parts = getattr(content, 'parts', None) or []
+                            text = "".join(
+                                (getattr(p, 'text', '') or '') for p in parts
+                            ).strip()
+
+                        if text:
                             try:
-                                parsed_json = json.loads(text)
+                                parsed_json = json.loads(_strip_markdown_fences(text))
                                 parsed_json['success'] = True
                                 results.append(parsed_json)
                             except json.JSONDecodeError:
@@ -1299,13 +1356,22 @@ class GeminiBatchProcessor:
                                     'error': 'JSON parse error',
                                     'raw_response': text
                                 })
-                        elif response.error:
+                        elif getattr(response, 'error', None):
                             results.append({
                                 'success': False,
                                 'error': str(response.error)
                             })
+                        else:
+                            results.append({
+                                'success': False,
+                                'error': 'No text in inline response'
+                            })
                     except Exception as e:
                         print(f"   [WARNING] Error processing response: {e}")
+                        results.append({
+                            'success': False,
+                            'error': f'parse_failed: {e}'
+                        })
             
             print(f"   [INFO] Successful: {sum(1 for r in results if r.get('success'))}")
             print(f"   [INFO] Failed: {sum(1 for r in results if not r.get('success'))}")
