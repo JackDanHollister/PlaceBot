@@ -111,7 +111,7 @@ price tier. Verify current pricing with each provider.
 | **OpenAI** | GPT-4.1 | Medium | Large context |
 | **OpenAI** | GPT-5 | Medium | Highest-quality extraction |
 | **Claude** | Opus 4.8 | Medium | Deep reasoning |
-| **Gemini** | Gemini 3 Pro (preview) | Medium | Advanced tasks |
+| **Gemini** | Gemini 3.1 Pro (preview) | Medium | Advanced tasks |
 | **Qwen** | 3 1.7B (local) | **FREE** | Privacy/offline |
 | **Qwen** | 3 14B (local) | **FREE** | Best local |
 | **Qwen** | 3 8B (local) | **FREE** | Offline balance |

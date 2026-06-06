@@ -1,11 +1,14 @@
-# Gemini 3 Pro Model Profile with Advanced Thinking
+# Gemini 3.1 Pro Model Profile with Advanced Thinking
 # Google's most advanced model with state-of-the-art reasoning.
-# NOTE: this is a PREVIEW model and its ID/availability may change.
+# NOTE: this is a PREVIEW model. Google rotates Gemini Pro preview IDs every few
+# months (e.g. gemini-3-pro-preview was shut down and replaced by this one).
+# If you get a 404 "model no longer available", check the current Pro preview ID
+# at https://ai.google.dev/gemini-api/docs/models and update MODEL_ID/endpoint.
 
-MODEL_NAME = "Gemini 3 Pro"
+MODEL_NAME = "Gemini 3.1 Pro"
 MODEL_PROVIDER = "Google"
-MODEL_ID = "gemini-3-pro-preview"
-API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"
+MODEL_ID = "gemini-3.1-pro-preview"
+API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent"
 
 # API Key Configuration
 # IMPORTANT: Add your API key here or set GOOGLE_API_KEY environment variable

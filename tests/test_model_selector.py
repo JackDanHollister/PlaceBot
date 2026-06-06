@@ -46,11 +46,11 @@ def test_current_model_lineup():
     models = discover_models()
     # Current OpenAI + Gemini lineup is present
     for expected in ("gpt_4_1", "gpt_4_1_mini", "gpt_5", "gpt_5_mini",
-                     "gemini_3_5_flash", "gemini_3_pro"):
+                     "gemini_3_5_flash", "gemini_3_1_pro"):
         assert expected in models, f"missing {expected}"
     # Retired / shut-down profiles are gone
     for removed in ("o4_mini", "gemini_2_5_flash", "gemini_2_5_flash_lite",
-                    "gemini_2_5_pro"):
+                    "gemini_2_5_pro", "gemini_3_pro"):
         assert removed not in models, f"{removed} should be removed"
 
 
