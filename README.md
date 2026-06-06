@@ -52,9 +52,12 @@ This opens PlaceBot in your browser. From the graphical interface you can:
   multiple Gemini keys for very large jobs.
 - Upload a CSV/TSV file and preview it.
 - Pick a model directly from the comparison table.
-- Run in real-time or submit a batch job.
-- Download completed batch results without opening a terminal.
-- Open your output folder in the file browser with one click.
+- Run in real-time, submit a batch job, or use staggered batch for very
+  large, quota-safe jobs.
+- Download completed batch results (including merged staggered jobs) without
+  opening a terminal.
+- Results are saved straight to your output folder (CSV uses a UTF-8 BOM so
+  Excel shows accents correctly), with one-click access to that folder.
 
 No terminal knowledge is required.
 
@@ -139,8 +142,13 @@ Batch processing is ideal for:
 - Large biodiversity datasets
 - Any dataset where 24-hour processing time is acceptable
 
-Batch jobs submitted from the graphical interface can also be downloaded there
-from the **Batch downloads** page once they complete.
+For very large datasets (3,000+ records), **staggered batch** mode splits the
+job into several smaller sub-batches submitted with short delays, so you stay
+under each provider's quota limits while keeping the 50% batch discount.
+
+Batch and staggered jobs submitted from the graphical interface can also be
+fetched (and, for staggered jobs, merged) from the **Batch downloads** page
+once they complete — no command line required.
 
 ### Cost Optimisation
 

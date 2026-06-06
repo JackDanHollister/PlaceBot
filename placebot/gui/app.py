@@ -374,14 +374,30 @@ def step_configure():
     st.caption(f"Dataset: **{selected['filename']}** · {num_records:,} records")
 
     # --- Mode ---
+    mode_options = {
+        "Real-time (results now)": "realtime",
+        "Batch (cheaper, up to 24h)": "batch",
+        "Staggered batch (very large / quota-safe)": "staggered",
+    }
     mode_label = st.radio(
         "Processing mode",
-        ["Real-time (results now)", "Batch (cheaper, up to 24h)"],
+        list(mode_options.keys()),
         help="Real-time is best for small datasets (under ~1,000 records). "
-        "Batch is ~50% cheaper for large jobs. For very large jobs "
-        "(3,000+) use the command line's staggered mode.",
+        "Batch is ~50% cheaper and returns within 24h. Staggered batch is for "
+        "very large jobs (3,000+): it splits the data into several smaller "
+        "batches submitted with delays so you stay under provider quotas.",
     )
-    mode = "realtime" if mode_label.startswith("Real-time") else "batch"
+    mode = mode_options[mode_label]
+    # Staggered uses the same batch pricing (50% discount) for estimates.
+    cost_mode = "batch" if mode in ("batch", "staggered") else "realtime"
+    if mode == "staggered":
+        st.info(
+            "Staggered mode splits your dataset into provider-sized sub-batches "
+            "and submits them with delays (10–120s each) to avoid quota limits. "
+            "Submission can take a few minutes for very large jobs; keep this "
+            "tab open until it finishes. Results are fetched later from "
+            "**Batch downloads**."
+        )
 
     # --- Model selection with comparison table ---
     model_names = tuple(discover_models())
@@ -390,7 +406,7 @@ def step_configure():
         return
     configs = _load_all_model_configs(model_names)
 
-    comparisons = ModelComparison.compare_models(configs, num_records, mode)
+    comparisons = ModelComparison.compare_models(configs, num_records, cost_mode)
     comp_by_name = {c["model_name"]: c for c in comparisons}
 
     import pandas as pd
@@ -475,7 +491,7 @@ def step_configure():
     cost = CostEstimator.estimate_cost(
         num_records,
         model_config,
-        processing_mode=mode,
+        processing_mode=cost_mode,
         with_caching="cached" in model_config.get("name", "").lower(),
     )
     st.subheader("Estimated cost")
@@ -540,6 +556,8 @@ def step_run(dataset_manager: DatasetManager):
     if "run_results" not in st.session_state:
         if mode == "realtime":
             _run_realtime(dataset_manager, selected, model_config)
+        elif mode == "staggered":
+            _run_staggered(selected, model_config)
         else:
             _run_batch(selected, model_config)
 
@@ -661,6 +679,161 @@ def _run_batch(selected, model_config):
     }
 
 
+# Provider-tuned sub-batch sizes and inter-submission delays (seconds),
+# mirroring the CLI's staggered mode so quotas aren't exceeded.
+_STAGGER_PROFILE = {
+    "gemini": (500, 120),
+    "google": (500, 120),
+    "anthropic": (1000, 30),
+    "openai": (2000, 10),
+    "gpt": (2000, 10),
+}
+
+
+def _stagger_profile(provider: str):
+    for key, prof in _STAGGER_PROFILE.items():
+        if key in provider:
+            return prof
+    return None
+
+
+def _run_staggered(selected, model_config):
+    import time
+
+    from placebot.core.async_batch_processor import (
+        AnthropicBatchProcessor,
+        OpenAIBatchProcessor,
+        GeminiBatchProcessor,
+    )
+    from placebot.core.ai_processor import AIProcessor
+
+    provider = (model_config.get("provider", "") or "").lower()
+    api_key = model_config.get("api_key", "")
+    model_id = model_config.get("model_id", "")
+
+    if "anthropic" in provider:
+        bp = AnthropicBatchProcessor(api_key, model_id)
+    elif "openai" in provider or "gpt" in provider:
+        bp = OpenAIBatchProcessor(api_key, model_id)
+    elif "google" in provider or "gemini" in provider:
+        bp = GeminiBatchProcessor(api_key, model_id)
+    else:
+        st.error(
+            f"Staggered batch is not supported for provider '{provider}'. "
+            "Use Real-time mode instead."
+        )
+        return
+
+    profile = _stagger_profile(provider)
+    if profile is None:
+        st.error(f"No staggered profile for provider '{provider}'.")
+        return
+    batch_size, delay_seconds = profile
+
+    records = st.session_state.dataset_records
+    prompt_template = AIProcessor(model_config)._get_full_instructions()
+    total_records = len(records)
+    num_batches = (total_records + batch_size - 1) // batch_size
+
+    batch_dir = os.path.join(str(get_output_dir()), "batch_jobs")
+    os.makedirs(batch_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stem = os.path.splitext(selected["filename"])[0]
+    model_safe = model_config.get("name", "model").replace(" ", "_")
+    batch_name = f"{stem}_{model_safe}_{timestamp}"
+    output_formats = st.session_state.formats
+
+    st.write(
+        f"Submitting **{num_batches}** sub-batch(es) of up to {batch_size:,} "
+        f"records, with a {delay_seconds}s pause between each."
+    )
+    bar = st.progress(0.0)
+    status = st.empty()
+
+    batch_info_list = []
+    submit_error = None
+    for batch_num in range(num_batches):
+        start_idx = batch_num * batch_size
+        end_idx = min((batch_num + 1) * batch_size, total_records)
+        batch_records = records[start_idx:end_idx]
+        sub_batch_name = f"{batch_name}_batch{batch_num + 1}of{num_batches}"
+
+        status.write(
+            f"Submitting sub-batch {batch_num + 1}/{num_batches} "
+            f"(records {start_idx + 1}–{end_idx})…"
+        )
+        try:
+            if "openai" in provider or "gpt" in provider:
+                batch_file = os.path.join(batch_dir, f"{sub_batch_name}.jsonl")
+                bp.prepare_batch_file(batch_records, prompt_template, batch_file)
+                sub_batch_id = bp.submit_batch(batch_file, sub_batch_name)
+            else:
+                requests_list = bp.prepare_batch_requests(
+                    batch_records, prompt_template
+                )
+                sub_batch_id = bp.submit_batch(requests_list, sub_batch_name)
+        except Exception as e:
+            submit_error = str(e)
+            status.write(f"Sub-batch {batch_num + 1} failed: {e}")
+            break
+
+        sub_info = {
+            "batch_number": batch_num + 1,
+            "total_batches": num_batches,
+            "batch_id": sub_batch_id,
+            "batch_name": sub_batch_name,
+            "provider": provider,
+            "model": model_id,
+            "dataset": selected["filename"],
+            "start_record": start_idx + 1,
+            "end_record": end_idx,
+            "record_count": end_idx - start_idx,
+            "submitted_at": timestamp,
+            "output_formats": output_formats,
+        }
+        batch_info_list.append(sub_info)
+        with open(
+            os.path.join(batch_dir, f"{sub_batch_name}_info.json"),
+            "w",
+            encoding="utf-8",
+        ) as f:
+            json.dump(sub_info, f, indent=2, ensure_ascii=False)
+
+        bar.progress((batch_num + 1) / num_batches)
+
+        # Pause before the next submission (not after the last one).
+        if batch_num < num_batches - 1:
+            status.write(
+                f"Submitted {batch_num + 1}/{num_batches}. "
+                f"Waiting {delay_seconds}s before the next sub-batch…"
+            )
+            time.sleep(delay_seconds)
+
+    summary = {
+        "total_records": total_records,
+        "batch_size": batch_size,
+        "batches_submitted": len(batch_info_list),
+        "provider": provider,
+        "model": model_id,
+        "dataset": selected["filename"],
+        "submitted_at": timestamp,
+        "output_formats": output_formats,
+        "batches": batch_info_list,
+    }
+    summary_file = os.path.join(batch_dir, f"{batch_name}_staggered_summary.json")
+    with open(summary_file, "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2, ensure_ascii=False)
+
+    bar.progress(1.0)
+    st.session_state.run_results = {
+        "type": "staggered",
+        "summary_file": summary_file,
+        "batches_submitted": len(batch_info_list),
+        "num_batches": num_batches,
+        "submit_error": submit_error,
+    }
+
+
 def _show_results():
     res = st.session_state.get("run_results")
     if not res:
@@ -675,6 +848,25 @@ def _show_results():
             "to fetch your results — no command line needed."
         )
         st.caption(f"Job details saved to: {res['info_file']}")
+        return
+
+    if res["type"] == "staggered":
+        n = res["batches_submitted"]
+        total = res["num_batches"]
+        if res.get("submit_error") and n < total:
+            st.warning(
+                f"Submitted {n} of {total} sub-batches before an error: "
+                f"{res['submit_error']}. The submitted sub-batches will still "
+                "process; you can fetch their results from **Batch downloads**."
+            )
+        else:
+            st.success(f"Staggered batch submitted! {n} sub-batch(es) queued.")
+        st.write(
+            "Each sub-batch completes independently within 24 hours. When "
+            "they're done, open **Batch downloads** in the sidebar to fetch "
+            "and merge all results — no command line needed."
+        )
+        st.caption(f"Summary saved to: {res['summary_file']}")
         return
 
     results = res["results"]
@@ -721,29 +913,58 @@ def _show_results():
 
 
 def _list_batch_jobs():
-    """Return submitted batch jobs (newest first) from the batch_jobs folder."""
+    """Return submitted batch jobs (newest first) from the batch_jobs folder.
+
+    Includes both single async batches (``*_info.json``) and staggered jobs
+    (``*_staggered_summary.json``). Sub-batch info files belonging to a
+    staggered job are skipped - the summary represents them.
+    """
     batch_dir = str(get_batch_jobs_dir())
     jobs = []
-    if os.path.isdir(batch_dir):
-        for fname in os.listdir(batch_dir):
-            if not fname.endswith("_info.json"):
+    if not os.path.isdir(batch_dir):
+        return jobs
+
+    for fname in os.listdir(batch_dir):
+        path = os.path.join(batch_dir, fname)
+        try:
+            if os.path.getsize(path) == 0:
                 continue
-            path = os.path.join(batch_dir, fname)
-            try:
-                if os.path.getsize(path) == 0:
-                    continue
-                with open(path, encoding="utf-8") as f:
-                    info = json.load(f)
-                if "batch_id" in info:
-                    jobs.append(info)
-            except (json.JSONDecodeError, OSError):
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+
+        if fname.endswith("_staggered_summary.json"):
+            jobs.append(
+                {
+                    "type": "staggered",
+                    "label": fname.replace("_staggered_summary.json", ""),
+                    "summary_file": path,
+                    "provider": data.get("provider", ""),
+                    "model": data.get("model", ""),
+                    "record_count": data.get("total_records", 0),
+                    "submitted_at": data.get("submitted_at", ""),
+                    "output_formats": data.get("output_formats", ["csv"]),
+                    "batches_submitted": data.get(
+                        "batches_submitted", len(data.get("batches", []))
+                    ),
+                }
+            )
+        elif fname.endswith("_info.json"):
+            # Sub-batches of a staggered job carry 'batch_number'; skip them.
+            if "batch_number" in data or "batch_id" not in data:
                 continue
+            data["type"] = "single"
+            data["label"] = data.get("batch_name", data["batch_id"])
+            jobs.append(data)
+
     jobs.sort(key=lambda i: i.get("submitted_at", ""), reverse=True)
     return jobs
 
 
 def step_batch_downloads():
     from placebot.cli.batch_download import fetch_batch_results
+    from placebot.cli.batch_download_staggered import fetch_staggered_results
 
     st.header("Batch downloads")
     st.write(
@@ -755,38 +976,43 @@ def step_batch_downloads():
     if not jobs:
         st.info(
             "No batch jobs found yet. Submit one from **Process data** using "
-            "the *Batch* processing mode."
+            "the *Batch* or *Staggered batch* processing mode."
         )
         return
 
-    labels = [
-        f"{j.get('batch_name', j['batch_id'])} — "
-        f"{j.get('record_count', '?')} records, submitted {j.get('submitted_at', '?')}"
-        for j in jobs
-    ]
-    idx = st.selectbox(
-        "Select a batch job",
-        range(len(jobs)),
-        format_func=lambda i: labels[i],
-    )
+    def _label(i):
+        j = jobs[i]
+        tag = "staggered" if j["type"] == "staggered" else "batch"
+        return (
+            f"[{tag}] {j['label']} — {j.get('record_count', 0):,} records, "
+            f"submitted {j.get('submitted_at', '?')}"
+        )
+
+    idx = st.selectbox("Select a batch job", range(len(jobs)), format_func=_label)
     job = jobs[idx]
+    job_key = job.get("summary_file") or job.get("batch_id")
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Provider", job.get("provider", "—"))
     c2.metric("Records", f"{job.get('record_count', 0):,}")
     c3.metric("Model", job.get("model", "—"))
-    st.caption(f"Batch ID: `{job['batch_id']}`")
+    if job["type"] == "staggered":
+        st.caption(f"Sub-batches: {job.get('batches_submitted', 0)}")
+    else:
+        st.caption(f"Batch ID: `{job['batch_id']}`")
 
     if st.button("Download results", type="primary"):
         with st.spinner("Fetching results from the provider…"):
-            result = fetch_batch_results(job["batch_id"])
+            if job["type"] == "staggered":
+                result = fetch_staggered_results(job["summary_file"])
+            else:
+                result = fetch_batch_results(job["batch_id"])
+        result["_job_key"] = job_key
         st.session_state.batch_dl_result = result
 
     result = st.session_state.get("batch_dl_result")
-    if not result:
-        return
     # Only show results for the currently-selected job
-    if result.get("info", {}).get("batch_id") != job["batch_id"]:
+    if not result or result.get("_job_key") != job_key:
         return
 
     if not result["success"]:
@@ -795,7 +1021,15 @@ def step_batch_downloads():
 
     records = result["records"]
     formats = job.get("output_formats") or ["csv"]
-    stem = job.get("batch_name", "placebot")
+    stem = job["label"] + ("_merged" if job["type"] == "staggered" else "")
+
+    if job["type"] == "staggered":
+        expected = result.get("expected", 0)
+        failed = result.get("failed", [])
+        st.caption(
+            f"Merged {len(records):,} of {expected:,} expected records"
+            + (f" · {len(failed)} sub-batch(es) not ready yet" if failed else "")
+        )
 
     # Auto-save the chosen formats into the output folder, matching real-time
     # mode (same canonical columns and UTF-8 BOM on CSV). Done once per fetch.
