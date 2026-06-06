@@ -183,13 +183,11 @@ def run_interactive_mode(args):
             prompt_template = base_instructions
             
             # Create output directory for batch files
-            import os
             batch_dir = os.path.join(output_dir, 'batch_jobs')
             os.makedirs(batch_dir, exist_ok=True)
-            
+
             # Prepare batch file based on provider
             from datetime import datetime
-            import os
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             # Extract filename without extension
             filename_stem = os.path.splitext(selected_dataset['filename'])[0]
