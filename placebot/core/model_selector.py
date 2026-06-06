@@ -86,6 +86,7 @@ def load_model_profile(model_file: str) -> Optional[Dict[str, Any]]:
             'max_tokens': getattr(module, 'MAX_TOKENS', 4096),
             'max_output_tokens': getattr(module, 'MAX_OUTPUT_TOKENS', 2000),
             'requests_per_minute': getattr(module, 'REQUESTS_PER_MINUTE', 50),
+            'request_timeout': getattr(module, 'REQUEST_TIMEOUT', 30),
             'speed': getattr(module, 'SPEED', 'Unknown'),
             'accuracy': getattr(module, 'ACCURACY', 'Unknown'),
             'cost_efficiency': getattr(module, 'COST_EFFICIENCY', 'Unknown'),

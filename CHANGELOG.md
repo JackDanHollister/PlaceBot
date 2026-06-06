@@ -5,6 +5,16 @@ All notable changes to PlaceBot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-06-06
+
+### Fixed
+- GPT-5 / GPT-5 mini requests timed out after 30s because GPT-5 is a reasoning
+  model and "thinks" before responding. They now send
+  `reasoning_effort="minimal"` (deep reasoning isn't needed for locality
+  extraction, and it keeps latency/cost low) and use a 120s request timeout via
+  a new per-model `REQUEST_TIMEOUT` setting. The OpenAI batch path applies the
+  same minimal-reasoning setting and a larger token budget for reasoning models.
+
 ## [1.2.0] - 2026-06-06
 
 ### Added

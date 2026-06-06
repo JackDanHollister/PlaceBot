@@ -270,7 +270,7 @@ Respond with JSON only."""
                     endpoint,
                     headers=headers,
                     json=request_body,
-                    timeout=30
+                    timeout=self.model_config.get('request_timeout', 30)
                 )
                 
                 print(f"API Response: {response.status_code}")

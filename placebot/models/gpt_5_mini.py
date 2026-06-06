@@ -24,6 +24,7 @@ MAX_TOKENS = 400000          # Context window
 MAX_OUTPUT_TOKENS = 16384    # Max output tokens per request
 CONTEXT_WINDOW = 400000      # Large context window
 REQUESTS_PER_MINUTE = 10000  # Rate limit (paid tier)
+REQUEST_TIMEOUT = 120        # GPT-5 is a reasoning model; allow extra time vs the 30s default
 
 # Model Characteristics
 SPEED = "Fast"
@@ -40,8 +41,11 @@ def get_headers(api_key: str) -> dict:
     }
 
 # Request format for OpenAI API.
-# Note: GPT-5 uses `max_completion_tokens` (not `max_tokens`) and does not accept
-# sampling parameters (temperature/top_p) on chat completions, so they are omitted.
+# Notes for GPT-5 (a reasoning model) on chat completions:
+#   - uses `max_completion_tokens` (not `max_tokens`)
+#   - does not accept sampling parameters (temperature/top_p), so they are omitted
+#   - `reasoning_effort="minimal"` keeps latency/cost low for this structured
+#     extraction task (deep reasoning isn't needed and causes 30s+ responses)
 def format_request(prompt: str, max_tokens: int = MAX_OUTPUT_TOKENS, cached_content_name: str = None) -> dict:
     return {
         "model": MODEL_ID,
@@ -51,7 +55,8 @@ def format_request(prompt: str, max_tokens: int = MAX_OUTPUT_TOKENS, cached_cont
                 "content": prompt
             }
         ],
-        "max_completion_tokens": min(max_tokens, MAX_OUTPUT_TOKENS)
+        "max_completion_tokens": min(max_tokens, MAX_OUTPUT_TOKENS),
+        "reasoning_effort": "minimal"
     }
 
 # Response parser for OpenAI API

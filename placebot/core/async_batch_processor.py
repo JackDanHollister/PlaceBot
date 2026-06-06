@@ -361,7 +361,13 @@ class OpenAIBatchProcessor:
             Path to created JSONL file
         """
         import json
-        
+
+        # Reasoning models (GPT-5 family, o-series) need minimal reasoning effort
+        # and a larger token budget so reasoning tokens don't crowd out the JSON
+        # output. They also reject sampling params (handled by not sending any).
+        model_lower = (self.model_id or "").lower()
+        is_reasoning = model_lower.startswith("gpt-5") or model_lower.startswith("o")
+
         with open(output_file, 'w', encoding='utf-8') as f:
             for record in records:
                 barcode = record.get('Barcode', f'record_{records.index(record)}')
@@ -373,23 +379,27 @@ class OpenAIBatchProcessor:
 
                 # Build coordinate context from preprocessing
                 coordinate_context = build_coordinate_context_for_prompt(record)
-                
+
+                body = {
+                    "model": self.model_id,
+                    "messages": [{
+                        "role": "user",
+                        "content": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}{coordinate_context}"
+                    }],
+                    "max_completion_tokens": 4000 if is_reasoning else 1000,
+                    "response_format": {"type": "json_object"}
+                }
+                if is_reasoning:
+                    body["reasoning_effort"] = "minimal"
+
                 request = {
                     "custom_id": barcode,
                     "method": "POST",
                     "url": "/v1/chat/completions",
-                    "body": {
-                        "model": self.model_id,
-                        "messages": [{
-                            "role": "user",
-                            "content": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}{coordinate_context}"
-                        }],
-                        "max_completion_tokens": 1000,
-                        "response_format": {"type": "json_object"}
-                    }
+                    "body": body
                 }
                 f.write(json.dumps(request, ensure_ascii=False) + '\n')
-        
+
         return output_file
     
     def submit_batch(self, batch_file_path: str, 
