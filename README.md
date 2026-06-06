@@ -320,7 +320,7 @@ If you use PlaceBot in your research, please cite:
 ```bibtex
 @software{placebot2025,
   title = {PlaceBot: Multi-Vendor AI Locality Processor},
-  author = {Jack Hollister},
+  author = {Jack Hollister and Ben Price and {Anthropic Claude}},
   year = {2025},
   url = {https://github.com/JackDanHollister/PlaceBot}
 }
