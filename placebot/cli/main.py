@@ -396,9 +396,20 @@ def run_interactive_mode(args):
             batch_size=batch_size,
             save_progress=True
         )
-        
+
         print(f"\n✅ Real-time processing completed!")
         print(f"   Results saved to output directory")
+
+        # Export the user-selected formats (CSV/JSON/GeoJSON) alongside the
+        # canonical .tsv. Without this, real-time mode only ever wrote a TSV
+        # and ignored the format choice made earlier.
+        records = results.get('processed_records', [])
+        tsv_path = results.get('output_path', '')
+        if records and tsv_path:
+            base_path = os.path.splitext(tsv_path)[0]
+            written = OutputFormatter.write_output(records, base_path, output_formats)
+            for fmt, path in written.items():
+                print(f"   💾 {fmt.upper()} saved: {path}")
     
     return 0
 

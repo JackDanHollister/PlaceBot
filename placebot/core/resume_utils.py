@@ -11,6 +11,20 @@ import json
 import os
 from typing import Dict, Optional, Any
 
+from placebot.core.data_dirs import get_output_dir
+
+
+def _resume_file_path(dataset_info: Dict[str, Any]) -> str:
+    """Return the absolute resume-state path for a dataset.
+
+    Always lives under PlaceBot's user output directory (``~/.placebot/output``
+    by default) so it works regardless of the current working directory - a
+    bare relative ``output/`` fails with a permission error on Windows when
+    PlaceBot is launched from a non-writable folder.
+    """
+    base_name = os.path.splitext(dataset_info['filename'])[0]
+    return os.path.join(str(get_output_dir()), f"{base_name}_resume.json")
+
 
 def check_for_resume(dataset_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
@@ -24,9 +38,8 @@ def check_for_resume(dataset_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
     try:
         # Create resume filename
-        base_name = os.path.splitext(dataset_info['filename'])[0]
-        resume_file = os.path.join('output', f"{base_name}_resume.json")
-        
+        resume_file = _resume_file_path(dataset_info)
+
         if not os.path.exists(resume_file):
             return None
         
@@ -70,12 +83,11 @@ def update_resume_state(dataset_info: Dict[str, Any], last_completed_index: int,
     """
     try:
         # Create resume filename
-        base_name = os.path.splitext(dataset_info['filename'])[0]
-        resume_file = os.path.join('output', f"{base_name}_resume.json")
-        
+        resume_file = _resume_file_path(dataset_info)
+
         # Ensure output directory exists
-        os.makedirs('output', exist_ok=True)
-        
+        os.makedirs(os.path.dirname(resume_file), exist_ok=True)
+
         # Create state
         state = {
             "input_file": dataset_info['filename'],
@@ -104,9 +116,8 @@ def cleanup_resume_state(dataset_info: Dict[str, Any]) -> None:
         dataset_info: Dataset information
     """
     try:
-        base_name = os.path.splitext(dataset_info['filename'])[0]
-        resume_file = os.path.join('output', f"{base_name}_resume.json")
-        
+        resume_file = _resume_file_path(dataset_info)
+
         if os.path.exists(resume_file):
             os.remove(resume_file)
             print("Cleaned up resume state file")
