@@ -333,7 +333,7 @@ class AnthropicBatchProcessor:
 class OpenAIBatchProcessor:
     """Handles async batch processing for OpenAI models."""
     
-    def __init__(self, api_key: str, model_id: str = "gpt-4o-mini"):
+    def __init__(self, api_key: str, model_id: str = "gpt-4.1-mini"):
         """
         Initialize OpenAI batch processor.
         
@@ -384,7 +384,7 @@ class OpenAIBatchProcessor:
                             "role": "user",
                             "content": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}{coordinate_context}"
                         }],
-                        "max_tokens": 1000,
+                        "max_completion_tokens": 1000,
                         "response_format": {"type": "json_object"}
                     }
                 }
@@ -610,7 +610,7 @@ class OpenAIBatchProcessor:
 class GeminiBatchProcessor:
     """Handles async batch processing for Gemini models using REST API."""
     
-    def __init__(self, api_key: str, model_id: str = "gemini-2.0-flash-exp"):
+    def __init__(self, api_key: str, model_id: str = "gemini-3.5-flash"):
         """
         Initialize Gemini batch processor.
         

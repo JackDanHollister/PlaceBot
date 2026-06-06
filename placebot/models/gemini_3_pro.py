@@ -1,24 +1,25 @@
-# Gemini 2.5 Pro Model Profile with Advanced Thinking
-# Google's most advanced model with state-of-the-art reasoning and implicit caching
+# Gemini 3 Pro Model Profile with Advanced Thinking
+# Google's most advanced model with state-of-the-art reasoning.
+# NOTE: this is a PREVIEW model and its ID/availability may change.
 
-MODEL_NAME = "Gemini 2.5 Pro"
+MODEL_NAME = "Gemini 3 Pro"
 MODEL_PROVIDER = "Google"
-MODEL_ID = "gemini-2.5-pro"
-API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
+MODEL_ID = "gemini-3-pro-preview"
+API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"
 
 # API Key Configuration
 # IMPORTANT: Add your API key here or set GOOGLE_API_KEY environment variable
 # Get your key at: https://aistudio.google.com/app/apikey
 API_KEY = ""  # Leave blank: set GOOGLE_API_KEY in your environment or via the GUI
 
-# Pricing Information (USD) with Implicit Caching - July 2025
-# Implicit Caching: Automatic 75% discount on cached input tokens (>2,048 tokens)
-COST_PER_1K_INPUT_TOKENS = 0.00125    # $1.25 per 1M input tokens
-COST_PER_1K_OUTPUT_TOKENS = 0.005     # $5.00 per 1M output tokens
-COST_PER_1K_CACHED_TOKENS = 0.0003125 # $0.3125 per 1M cached tokens (75% discount)
-ESTIMATED_COST_PER_RECORD = 0.0008    # Premium model with caching savings
+# Pricing Information (USD) with Implicit Caching
+# Note: Verify current pricing at https://ai.google.dev/gemini-api/docs/pricing
+COST_PER_1K_INPUT_TOKENS = 0.002      # $2.00 per 1M input tokens
+COST_PER_1K_OUTPUT_TOKENS = 0.012     # $12.00 per 1M output tokens
+COST_PER_1K_CACHED_TOKENS = 0.0005    # ~$0.50 per 1M cached input tokens
+ESTIMATED_COST_PER_RECORD = 0.0008    # premium model
 
-# Model Capabilities and Limits  
+# Model Capabilities and Limits
 MAX_TOKENS = 1000000         # 1M token context window
 MAX_OUTPUT_TOKENS = 8192     # Max output tokens per request
 CONTEXT_WINDOW = 1000000     # 1M token context window
@@ -28,7 +29,7 @@ REQUESTS_PER_MINUTE = 360    # Rate limit (more restricted)
 SPEED = "Moderate"           # Thinking models take more time
 ACCURACY = "Highest"         # State-of-the-art performance
 COST_EFFICIENCY = "Good"     # Premium pricing but powerful
-CACHING = "Implicit"         # Automatic caching (75% savings) 
+CACHING = "Implicit"         # Automatic caching
 REASONING = "Advanced"       # Deep thinking capabilities
 THINKING = "Adaptive"        # Built-in thinking mode
 BEST_FOR = "Complex reasoning, coding, math, science, advanced analysis"

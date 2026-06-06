@@ -1,22 +1,22 @@
-# Gemini 2.5 Flash Model Profile with Implicit Caching
-# Google's latest stable model with best price-performance and automatic caching
+# Gemini 3.5 Flash Model Profile with Implicit Caching
+# Google's current-generation stable model with best price-performance
 
-MODEL_NAME = "Gemini 2.5 Flash"
+MODEL_NAME = "Gemini 3.5 Flash"
 MODEL_PROVIDER = "Google"
-MODEL_ID = "gemini-2.5-flash"
-API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+MODEL_ID = "gemini-3.5-flash"
+API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
 
 # API Key Configuration
 # IMPORTANT: Add your API key here or set GOOGLE_API_KEY environment variable
 # Get your key at: https://aistudio.google.com/app/apikey
 API_KEY = ""  # Leave blank: set GOOGLE_API_KEY in your environment or via the GUI
 
-# Pricing Information (USD) with Implicit Caching - July 2025
-# Implicit Caching: Automatic 75% discount on cached input tokens (>1,024 tokens)
-COST_PER_1K_INPUT_TOKENS = 0.000125   # $0.125 per 1M input tokens
-COST_PER_1K_OUTPUT_TOKENS = 0.000375  # $0.375 per 1M output tokens
-COST_PER_1K_CACHED_TOKENS = 0.00003125 # $0.03125 per 1M cached tokens (75% discount)
-ESTIMATED_COST_PER_RECORD = 0.0001    # Extremely cost-effective with caching
+# Pricing Information (USD) with Implicit Caching
+# Note: Verify current pricing at https://ai.google.dev/gemini-api/docs/pricing
+COST_PER_1K_INPUT_TOKENS = 0.0015     # $1.50 per 1M input tokens
+COST_PER_1K_OUTPUT_TOKENS = 0.009     # $9.00 per 1M output tokens
+COST_PER_1K_CACHED_TOKENS = 0.000375  # ~$0.375 per 1M cached input tokens
+ESTIMATED_COST_PER_RECORD = 0.0003    # cost-effective at scale
 
 # Model Capabilities and Limits
 MAX_TOKENS = 1000000         # 1M token context window

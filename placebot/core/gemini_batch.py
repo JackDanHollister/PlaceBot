@@ -16,7 +16,7 @@ def create_gemini_batch_processor():
     class GeminiBatchProcessor:
         """Gemini batch processing using google-genai SDK Batch API."""
         
-        def __init__(self, api_key: str, model_id: str = "gemini-2.5-flash"):
+        def __init__(self, api_key: str, model_id: str = "gemini-3.5-flash"):
             """Initialize with API key and model ID."""
             import google.genai as genai
             

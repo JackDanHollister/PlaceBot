@@ -97,20 +97,24 @@ locality_id	locality_description
 
 ## 🎯 Model Comparison
 
-| Vendor | Model | Speed | Accuracy | Cost | Best For |
-|--------|-------|-------|----------|------|----------|
-| **Gemini** | 2.5 Flash-Lite | 0.98s | 100% | Lowest | Speed & cost |
-| **Claude** | Haiku 4.5 | 7.17s | 100% | Low | Reliability |
-| **OpenAI** | GPT-4.1-mini | 3.55s | 100% | Very Low | Balance |
-| **Gemini** | 2.5 Flash | 7.14s | 100% | Low | General use |
-| **Claude** | Sonnet 4.6 | 7.47s | 100% | Medium | Premium quality |
-| **OpenAI** | GPT-4.1 | 9.91s | 100% | Medium | Large context |
-| **Claude** | Opus 4.8 | 10.71s | 100% | Medium | Deep reasoning |
-| **Qwen** | 3 1.7B (local) | 10.34s | 97% | **FREE** | Privacy/offline |
-| **OpenAI** | o4-mini | 13.32s | 100% | Medium | Reasoning |
-| **Gemini** | 2.5 Pro | 13.52s | 100% | Medium | Advanced tasks |
-| **Qwen** | 3 14B (local) | 13.98s | 100% | **FREE** | Best local |
-| **Qwen** | 3 8B (local) | 17.04s | 99% | **FREE** | Offline balance |
+PlaceBot ships 12 model profiles across 4 vendors. Speed/accuracy figures are
+indicative (measured on earlier model versions); cost is the per-token list
+price tier. Verify current pricing with each provider.
+
+| Vendor | Model | Cost | Best For |
+|--------|-------|------|----------|
+| **Gemini** | Gemini 3.5 Flash | Low | Speed & cost (stable) |
+| **Claude** | Haiku 4.5 | Low | Reliability |
+| **OpenAI** | GPT-4.1-mini | Very Low | Balance |
+| **OpenAI** | GPT-5 mini | Low | Cost-efficient current-gen |
+| **Claude** | Sonnet 4.6 | Medium | Premium quality |
+| **OpenAI** | GPT-4.1 | Medium | Large context |
+| **OpenAI** | GPT-5 | Medium | Highest-quality extraction |
+| **Claude** | Opus 4.8 | Medium | Deep reasoning |
+| **Gemini** | Gemini 3 Pro (preview) | Medium | Advanced tasks |
+| **Qwen** | 3 1.7B (local) | **FREE** | Privacy/offline |
+| **Qwen** | 3 14B (local) | **FREE** | Best local |
+| **Qwen** | 3 8B (local) | **FREE** | Offline balance |
 
 ## 💡 Advanced Features
 

@@ -5,6 +5,35 @@ All notable changes to PlaceBot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-06
+
+### Added
+- OpenAI **GPT-5** and **GPT-5 mini** model profiles (current generation).
+
+### Changed
+- Refreshed OpenAI pricing for GPT-4.1 (~$2/$8 per 1M) and GPT-4.1-mini
+  (~$0.40/$1.60 per 1M).
+- Replaced the deprecated Gemini 2.5 profiles (shutting down ~June–July 2026)
+  with **Gemini 3.5 Flash** (stable) and **Gemini 3 Pro** (preview). Profile
+  files renamed to `gemini_3_5_flash.py` and `gemini_3_pro.py`.
+- OpenAI batch requests now send `max_completion_tokens` instead of the
+  deprecated `max_tokens`, required by GPT-5-class models.
+- Updated deprecated fallback model IDs in the batch processors
+  (`gpt-4o-mini` → `gpt-4.1-mini`, `gemini-2.0-flash-exp`/`gemini-2.5-flash`
+  → `gemini-3.5-flash`).
+
+### Removed
+- **o4-mini** profile (retired from ChatGPT; reasoning model not needed for
+  locality extraction).
+- **Gemini 2.5 Flash-Lite** profile (no Gemini 3 equivalent; lineup
+  consolidated).
+
+### Notes
+- GPT-5 profiles omit `temperature`/`top_p` — GPT-5-class models reject sampling
+  parameters on chat completions. GPT-4.1 retains its classic request shape.
+- Model IDs/pricing reflect the best available public information as of
+  2026-06-06; verify against each provider's live pricing/models pages.
+
 ## [1.1.1] - 2026-06-06
 
 ### Fixed
