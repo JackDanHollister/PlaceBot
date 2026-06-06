@@ -18,7 +18,6 @@ Design notes
 * Heavy work (processing) is gated behind an explicit button.
 """
 
-import io
 import json
 import os
 import platform
@@ -40,6 +39,7 @@ from placebot.core.dataset_preview import DatasetPreview
 from placebot.core.model_selector import discover_models, load_model_profile
 from placebot.core.model_comparison import ModelComparison
 from placebot.core.cost_estimator import CostEstimator
+from placebot.core.output_formatter import OutputFormatter
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -106,53 +106,42 @@ def _model_has_key(model_config: dict) -> bool:
     return len(key) > 10
 
 
+# These delegate to OutputFormatter so the GUI's downloads/auto-saves are
+# byte-for-byte identical to the CLI's files: same canonical column order, and
+# a UTF-8 BOM on CSV so Excel renders accents (e.g. "Rhône") correctly.
 def records_to_csv_bytes(records: list) -> bytes:
-    import csv
-
-    if not records:
-        return b""
-    fieldnames = []
-    for r in records:
-        for k in r.keys():
-            if k not in fieldnames:
-                fieldnames.append(k)
-    buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
-    writer.writeheader()
-    writer.writerows(records)
-    return buf.getvalue().encode("utf-8")
+    return OutputFormatter.records_to_csv_bytes(records)
 
 
 def records_to_json_bytes(records: list) -> bytes:
-    return json.dumps(records, indent=2, ensure_ascii=False).encode("utf-8")
+    return OutputFormatter.records_to_json_bytes(records)
 
 
 def records_to_geojson_bytes(records: list) -> bytes:
-    """Build GeoJSON, handling PlaceBot's capitalised Latitude/Longitude keys."""
-    features = []
-    for r in records:
-        lat = r.get("Latitude") or r.get("latitude") or r.get("lat")
-        lon = r.get("Longitude") or r.get("longitude") or r.get("lon")
-        if lat in (None, "") or lon in (None, ""):
-            continue
-        try:
-            lat_f, lon_f = float(lat), float(lon)
-        except (ValueError, TypeError):
-            continue
-        props = {
-            k: v
-            for k, v in r.items()
-            if k not in ("Latitude", "latitude", "lat", "Longitude", "longitude", "lon")
-        }
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [lon_f, lat_f]},
-                "properties": props,
-            }
+    return OutputFormatter.records_to_geojson_bytes(records)
+
+
+_DOWNLOAD_BUILDERS = {
+    "csv": ("text/csv", "csv", records_to_csv_bytes),
+    "json": ("application/json", "json", records_to_json_bytes),
+    "geojson": ("application/geo+json", "geojson", records_to_geojson_bytes),
+}
+
+
+def _render_download_buttons(records, formats, stem, key_prefix, heading="Download"):
+    """Render optional 'download a copy' buttons for the given formats."""
+    formats = [f for f in formats if f in _DOWNLOAD_BUILDERS] or ["csv"]
+    st.subheader(heading)
+    cols = st.columns(len(formats))
+    for col, fmt in zip(cols, formats):
+        mime, ext, builder = _DOWNLOAD_BUILDERS[fmt]
+        col.download_button(
+            f"Download {fmt.upper()}",
+            data=builder(records),
+            file_name=f"{stem}.{ext}",
+            mime=mime,
+            key=f"{key_prefix}_{fmt}",
         )
-    geojson = {"type": "FeatureCollection", "features": features}
-    return json.dumps(geojson, indent=2, ensure_ascii=False).encode("utf-8")
 
 
 def _load_all_model_configs(model_names: tuple) -> list:
@@ -584,7 +573,23 @@ def _run_realtime(dataset_manager, selected, model_config):
             return
 
     bar.progress(1.0)
-    st.session_state.run_results = {"type": "realtime", "results": results}
+
+    # Auto-save the chosen formats into the output folder (next to the .tsv),
+    # so users get CSV/JSON/GeoJSON without a manual browser download.
+    saved_files = {}
+    if results.get("success"):
+        records = results.get("processed_records", [])
+        tsv_path = results.get("output_path", "")
+        formats = st.session_state.get("formats", ["csv"])
+        if records and tsv_path:
+            base_path = os.path.splitext(tsv_path)[0]
+            saved_files = OutputFormatter.write_output(records, base_path, formats)
+
+    st.session_state.run_results = {
+        "type": "realtime",
+        "results": results,
+        "saved_files": saved_files,
+    }
 
 
 def _run_batch(selected, model_config):
@@ -681,7 +686,13 @@ def _show_results():
 
     records = results.get("processed_records", [])
     st.success(f"Done! Processed {len(records):,} records.")
-    st.caption(f"Results also saved to: {results.get('output_path', '')}")
+
+    # Files were saved automatically to the output folder.
+    saved_files = res.get("saved_files", {})
+    st.write("**Saved to your output folder:**")
+    st.write(f"- `{os.path.basename(results.get('output_path', ''))}` (TSV)")
+    for fmt, path in saved_files.items():
+        st.write(f"- `{os.path.basename(path)}` ({fmt.upper()})")
     render_output_folder_link("Output folder")
 
     with st.expander("Summary report"):
@@ -694,24 +705,14 @@ def _show_results():
     except Exception:
         st.write(records[:50])
 
-    st.subheader("Download")
-    formats = st.session_state.get("formats", ["csv"])
-    cols = st.columns(len(formats))
-    builders = {
-        "csv": ("text/csv", "csv", records_to_csv_bytes),
-        "json": ("application/json", "json", records_to_json_bytes),
-        "geojson": ("application/geo+json", "geojson", records_to_geojson_bytes),
-    }
-    stem = os.path.splitext(st.session_state.selected_dataset["filename"])[0]
-    for col, fmt in zip(cols, formats):
-        mime, ext, builder = builders[fmt]
-        col.download_button(
-            f"Download {fmt.upper()}",
-            data=builder(records),
-            file_name=f"{stem}_placebot.{ext}",
-            mime=mime,
-            key=f"dl_{fmt}",
-        )
+    _render_download_buttons(
+        records,
+        st.session_state.get("formats", ["csv"]),
+        stem=os.path.splitext(st.session_state.selected_dataset["filename"])[0]
+        + "_placebot",
+        key_prefix="dl",
+        heading="Or download a copy",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -793,8 +794,21 @@ def step_batch_downloads():
         return
 
     records = result["records"]
+    formats = job.get("output_formats") or ["csv"]
+    stem = job.get("batch_name", "placebot")
+
+    # Auto-save the chosen formats into the output folder, matching real-time
+    # mode (same canonical columns and UTF-8 BOM on CSV). Done once per fetch.
+    saved_files = result.get("saved_files")
+    if saved_files is None:
+        base_path = os.path.join(str(get_output_dir()), stem)
+        saved_files = OutputFormatter.write_output(records, base_path, formats)
+        result["saved_files"] = saved_files  # cache on the stored result
+
     st.success(f"Downloaded {len(records):,} records.")
-    st.caption(f"Saved to: {result['results_file']}")
+    st.write("**Saved to your output folder:**")
+    for fmt, path in saved_files.items():
+        st.write(f"- `{os.path.basename(path)}` ({fmt.upper()})")
     render_output_folder_link("Output folder")
 
     try:
@@ -804,25 +818,13 @@ def step_batch_downloads():
     except Exception:
         st.write(records[:50])
 
-    st.subheader("Download")
-    formats = job.get("output_formats") or ["csv"]
-    builders = {
-        "csv": ("text/csv", "csv", records_to_csv_bytes),
-        "json": ("application/json", "json", records_to_json_bytes),
-        "geojson": ("application/geo+json", "geojson", records_to_geojson_bytes),
-    }
-    formats = [f for f in formats if f in builders] or ["csv"]
-    stem = job.get("batch_name", "placebot")
-    cols = st.columns(len(formats))
-    for col, fmt in zip(cols, formats):
-        mime, ext, builder = builders[fmt]
-        col.download_button(
-            f"Download {fmt.upper()}",
-            data=builder(records),
-            file_name=f"{stem}.{ext}",
-            mime=mime,
-            key=f"batch_dl_{fmt}",
-        )
+    _render_download_buttons(
+        records,
+        formats,
+        stem=stem,
+        key_prefix="batch_dl",
+        heading="Or download a copy",
+    )
 
 
 # ---------------------------------------------------------------------------

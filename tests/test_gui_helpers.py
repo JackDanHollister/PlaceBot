@@ -6,10 +6,27 @@ from placebot.gui import app
 
 
 def test_csv_bytes_has_header_and_rows(sample_records):
-    text = app.records_to_csv_bytes(sample_records).decode("utf-8")
+    raw = app.records_to_csv_bytes(sample_records)
+    # CSV is emitted with a UTF-8 BOM so Excel renders accents correctly.
+    assert raw.startswith(b"\xef\xbb\xbf")
+    text = raw.decode("utf-8-sig")
     lines = text.splitlines()
+    # Canonical column order puts Barcode first.
     assert lines[0].startswith("Barcode")
     assert len(lines) == 3  # header + 2 records
+
+
+def test_csv_bytes_consistent_column_order(sample_records):
+    # Columns follow the shared canonical order regardless of dict insertion.
+    text = app.records_to_csv_bytes(sample_records).decode("utf-8-sig")
+    header = text.splitlines()[0]
+    assert header.split(",")[:5] == [
+        "Barcode",
+        "Locality verbatim",
+        "Country",
+        "Latitude",
+        "Longitude",
+    ]
 
 
 def test_json_bytes_roundtrips(sample_records):
