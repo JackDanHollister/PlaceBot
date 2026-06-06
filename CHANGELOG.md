@@ -5,6 +5,21 @@ All notable changes to PlaceBot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2026-06-06
+
+### Fixed
+- **Gemini batch results still failed to parse for some records** ("list indices
+  must be integers..."). The parser is now structure-agnostic: it recursively
+  finds the answer JSON anywhere in each result line (handling thinking-model
+  multi-part responses and any wrapper the batch results file uses) and never
+  raises. Failed records now include a `raw_response` snippet to aid diagnosis.
+- **Output filename truncated / permission denied.** Model names containing a
+  dot (e.g. "Gemini 3.1 Pro") caused `Path.with_suffix()` to truncate
+  `..._Gemini_3.1_Pro_..._results` down to `..._Gemini_3.csv`, producing
+  colliding names across runs (which surfaced as a Windows "permission denied"
+  when a stale file was open). `OutputFormatter` now appends the extension
+  instead of using `with_suffix`, preserving the full unique filename.
+
 ## [1.2.3] - 2026-06-06
 
 ### Fixed

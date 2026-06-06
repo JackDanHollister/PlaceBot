@@ -110,6 +110,80 @@ def _gemini_finish_reason(response) -> str:
         return ''
 
 
+def _deep_collect_text(obj, _depth=0):
+    """
+    Recursively collect every string under a "text" key, anywhere in a parsed
+    response. Structure-agnostic: works regardless of how the batch results file
+    nests candidates/content/parts, and never raises.
+    """
+    out = []
+    if _depth > 12:
+        return out
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == 'text' and isinstance(v, str):
+                out.append(v)
+            else:
+                out.extend(_deep_collect_text(v, _depth + 1))
+    elif isinstance(obj, list):
+        for item in obj:
+            out.extend(_deep_collect_text(item, _depth + 1))
+    return out
+
+
+def _extract_first_json_object(text):
+    """Return the first balanced, parseable JSON object in `text`, or None.
+    Tolerates surrounding prose and braces inside string values."""
+    if not text:
+        return None
+    text = text.strip()
+    try:
+        obj = json.loads(text)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        pass
+    start = text.find('{')
+    while start != -1:
+        depth = 0
+        in_str = False
+        esc = False
+        for i in range(start, len(text)):
+            c = text[i]
+            if esc:
+                esc = False
+                continue
+            if c == '\\':
+                esc = True
+                continue
+            if c == '"':
+                in_str = not in_str
+            elif not in_str:
+                if c == '{':
+                    depth += 1
+                elif c == '}':
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            return json.loads(text[start:i + 1])
+                        except Exception:
+                            break
+        start = text.find('{', start + 1)
+    return None
+
+
+def _find_error_message(obj, _depth=0):
+    """Best-effort extraction of an error/blocked-reason message from a result."""
+    if _depth > 12 or not isinstance(obj, dict):
+        return ''
+    err = obj.get('error')
+    if isinstance(err, dict) and err.get('message'):
+        return str(err['message'])
+    if isinstance(err, str) and err:
+        return err
+    finish = _gemini_finish_reason(obj.get('response') if 'response' in obj else obj)
+    return f'finishReason={finish}' if finish else ''
+
+
 class AnthropicBatchProcessor:
     """Handles async batch processing for Anthropic Claude models."""
     
@@ -1288,39 +1362,30 @@ class GeminiBatchProcessor:
                     barcode = 'unknown'
                     try:
                         result = json.loads(line)
-                        barcode = result.get('key', 'unknown')
+                        if isinstance(result, dict):
+                            barcode = result.get('key', 'unknown')
 
-                        # Robustly extract text (handles thinking-model multi-part
-                        # responses and shape variations)
-                        text = _extract_gemini_text_from_dict(result.get('response'))
+                        # Structure-agnostic: find the answer JSON anywhere in the
+                        # result (handles thinking-model multi-part responses and
+                        # whatever wrapper the batch results file uses).
+                        parsed = None
+                        for candidate_text in _deep_collect_text(result):
+                            parsed = _extract_first_json_object(
+                                _strip_markdown_fences(candidate_text))
+                            if parsed is not None:
+                                break
 
-                        if text:
-                            text = _strip_markdown_fences(text)
-                            try:
-                                parsed_json = json.loads(text)
-                                parsed_json['barcode'] = barcode
-                                parsed_json['success'] = True
-                                results.append(parsed_json)
-                            except json.JSONDecodeError:
-                                results.append({
-                                    'barcode': barcode,
-                                    'success': False,
-                                    'error': 'JSON parse error',
-                                    'raw_response': text
-                                })
-                        elif isinstance(result.get('error'), dict):
-                            results.append({
-                                'barcode': barcode,
-                                'success': False,
-                                'error': result['error'].get('message', 'Unknown error')
-                            })
+                        if parsed is not None:
+                            parsed['barcode'] = barcode
+                            parsed['success'] = True
+                            results.append(parsed)
                         else:
-                            # No text and no error block - surface the finish reason
-                            finish = _gemini_finish_reason(result.get('response'))
+                            err = _find_error_message(result) or 'No parseable JSON in response'
                             results.append({
                                 'barcode': barcode,
                                 'success': False,
-                                'error': f'No text in response (finishReason={finish or "unknown"})'
+                                'error': err,
+                                'raw_response': line[:500],
                             })
                     except Exception as e:
                         # Never silently drop a record - account for every line
@@ -1328,7 +1393,8 @@ class GeminiBatchProcessor:
                         results.append({
                             'barcode': barcode,
                             'success': False,
-                            'error': f'parse_failed: {e}'
+                            'error': f'parse_failed: {e}',
+                            'raw_response': line[:500],
                         })
 
             elif batch_job.dest and batch_job.dest.inlined_responses:

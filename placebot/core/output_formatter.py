@@ -30,8 +30,11 @@ class OutputFormatter:
         if not data:
             raise ValueError("No data to write")
         
-        # Ensure .csv extension
-        output_path = str(Path(output_path).with_suffix('.csv'))
+        # Ensure .csv extension (append, don't use with_suffix - model names like
+        # "Gemini 3.1 Pro" contain dots that with_suffix would truncate)
+        output_path = str(output_path)
+        if not output_path.lower().endswith('.csv'):
+            output_path += '.csv'
         
         # Get all unique keys from all records
         fieldnames = set()
@@ -72,8 +75,11 @@ class OutputFormatter:
         Returns:
             Path to created file
         """
-        # Ensure .json extension
-        output_path = str(Path(output_path).with_suffix('.json'))
+        # Ensure .json extension (append, don't use with_suffix - model names like
+        # "Gemini 3.1 Pro" contain dots that with_suffix would truncate)
+        output_path = str(output_path)
+        if not output_path.lower().endswith('.json'):
+            output_path += '.json'
         
         with open(output_path, 'w', encoding='utf-8') as f:
             if pretty:
@@ -95,8 +101,11 @@ class OutputFormatter:
         Returns:
             Path to created file
         """
-        # Ensure .geojson extension
-        output_path = str(Path(output_path).with_suffix('.geojson'))
+        # Ensure .geojson extension (append, don't use with_suffix - model names
+        # like "Gemini 3.1 Pro" contain dots that with_suffix would truncate)
+        output_path = str(output_path)
+        if not output_path.lower().endswith('.geojson'):
+            output_path += '.geojson'
         
         coord_keys = ('Latitude', 'latitude', 'lat', 'Longitude', 'longitude', 'lon', 'long')
         features = []
