@@ -5,6 +5,23 @@ All notable changes to PlaceBot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-06-06
+
+### Fixed
+- Updated the Claude model profiles to current model IDs. The previous Haiku
+  profile used `claude-3-5-haiku-20241022`, which Anthropic retired on
+  2026-02-19 and now returns HTTP 404. The Sonnet/Opus profiles used the
+  `claude-*-4-20250514` IDs, which are deprecated and retiring 2026-06-15.
+  Profiles now use `claude-haiku-4-5`, `claude-sonnet-4-6`, and
+  `claude-opus-4-8`, with refreshed pricing and display names. Model profile
+  files were renamed to match (`claude_haiku_4_5.py`, `claude_sonnet_4_6.py`,
+  `claude_opus_4_8.py`).
+- Removed the `temperature` sampling parameter from the Opus 4.8 request
+  builder — Opus 4.8 rejects sampling parameters with a 400 error.
+- Replaced retired fallback model IDs (`claude-3-haiku-20240307`,
+  `claude-3-5-haiku-20241022`) used as defaults in the real-time and batch
+  request paths.
+
 ## [1.1.0] - 2026-06-05
 
 ### Added

@@ -1,9 +1,9 @@
-# Claude 3.5 Haiku Model Profile with Prompt Caching Support
+# Claude Haiku 4.5 Model Profile with Prompt Caching Support
 # Anthropic Claude API Configuration with Enhanced Cost Efficiency
 
-MODEL_NAME = "Claude 3.5 Haiku (Cached)"
+MODEL_NAME = "Claude Haiku 4.5 (Cached)"
 MODEL_PROVIDER = "Anthropic"
-MODEL_ID = "claude-3-5-haiku-20241022"
+MODEL_ID = "claude-haiku-4-5"
 API_ENDPOINT = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 
@@ -12,14 +12,14 @@ API_VERSION = "2023-06-01"
 # Get your key at: https://console.anthropic.com/
 API_KEY = ""  # Leave blank: set ANTHROPIC_API_KEY in your environment or via the GUI
 
-# Pricing Information (USD) with Caching - July 2025
-# Note: Verify current pricing at https://console.anthropic.com/
-COST_PER_1K_INPUT_TOKENS = 0.00025     # $0.25 per 1M input tokens (estimated)
-COST_PER_1K_OUTPUT_TOKENS = 0.00125    # $1.25 per 1M output tokens (estimated)
-COST_PER_1K_CACHED_TOKENS = 0.000025   # $0.025 per 1M cached tokens (90% savings!)
+# Pricing Information (USD) with Caching
+# Note: Verify current pricing at https://platform.claude.com/docs/en/about-claude/pricing
+COST_PER_1K_INPUT_TOKENS = 0.001       # $1.00 per 1M input tokens
+COST_PER_1K_OUTPUT_TOKENS = 0.005      # $5.00 per 1M output tokens
+COST_PER_1K_CACHED_TOKENS = 0.0001     # ~$0.10 per 1M cached read tokens (90% savings!)
 
 # Updated cost per record with caching (shows savings on large datasets)
-ESTIMATED_COST_PER_RECORD = 0.0001     # 83% savings on 1000+ records
+ESTIMATED_COST_PER_RECORD = 0.0001     # cost-efficient at scale with caching
 
 # Model Capabilities and Limits
 MAX_TOKENS = 200000          # Context window
@@ -54,17 +54,17 @@ def format_request(prompt: str, max_tokens: int = MAX_OUTPUT_TOKENS, cached_cont
             }
         ]
     }
-    
+
     # Add caching if cached_content_name is provided
     if cached_content_name:
         request_body["system"] = [
             {
-                "type": "text", 
+                "type": "text",
                 "text": "You are a geographic locality processing expert.",
                 "cache_control": {"type": "ephemeral"}
             }
         ]
-    
+
     return request_body
 
 # Response parser for Claude API

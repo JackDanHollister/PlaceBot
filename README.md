@@ -100,12 +100,12 @@ locality_id	locality_description
 | Vendor | Model | Speed | Accuracy | Cost | Best For |
 |--------|-------|-------|----------|------|----------|
 | **Gemini** | 2.5 Flash-Lite | 0.98s | 100% | Lowest | Speed & cost |
-| **Claude** | 3.5 Haiku | 7.17s | 100% | Low | Reliability |
+| **Claude** | Haiku 4.5 | 7.17s | 100% | Low | Reliability |
 | **OpenAI** | GPT-4.1-mini | 3.55s | 100% | Very Low | Balance |
 | **Gemini** | 2.5 Flash | 7.14s | 100% | Low | General use |
-| **Claude** | 4 Sonnet | 7.47s | 100% | Medium | Premium quality |
+| **Claude** | Sonnet 4.6 | 7.47s | 100% | Medium | Premium quality |
 | **OpenAI** | GPT-4.1 | 9.91s | 100% | Medium | Large context |
-| **Claude** | 4 Opus | 10.71s | 100% | Medium | Balanced |
+| **Claude** | Opus 4.8 | 10.71s | 100% | Medium | Deep reasoning |
 | **Qwen** | 3 1.7B (local) | 10.34s | 97% | **FREE** | Privacy/offline |
 | **OpenAI** | o4-mini | 13.32s | 100% | Medium | Reasoning |
 | **Gemini** | 2.5 Pro | 13.52s | 100% | Medium | Advanced tasks |

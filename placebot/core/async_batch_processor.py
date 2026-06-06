@@ -69,7 +69,7 @@ def build_coordinate_context_for_prompt(record: Dict[str, Any]) -> str:
 class AnthropicBatchProcessor:
     """Handles async batch processing for Anthropic Claude models."""
     
-    def __init__(self, api_key: str, model_id: str = "claude-3-5-haiku-20241022"):
+    def __init__(self, api_key: str, model_id: str = "claude-haiku-4-5"):
         """
         Initialize Anthropic batch processor.
         
