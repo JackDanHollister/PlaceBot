@@ -54,6 +54,7 @@ dev = [
 placebot = "placebot.cli.main:main"
 pb = "placebot.cli.main:main"
 placebot-batch = "placebot.cli.batch_manager:main"
+placebot-ensemble = "placebot.cli.ensemble:main"
 placebot-gui = "placebot.gui.launcher:main"
 
 [project.urls]

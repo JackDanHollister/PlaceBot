@@ -68,6 +68,24 @@ class OutputFormatter:
         return buf.getvalue().encode("utf-8-sig")
 
     @staticmethod
+    def records_to_tsv_bytes(data: List[Dict[str, Any]]) -> bytes:
+        """Render records as tab-separated bytes with a UTF-8 BOM.
+
+        Same canonical column order and Excel-friendly BOM as the CSV writer,
+        just tab-delimited.
+        """
+        if not data:
+            return b""
+        fieldnames = order_fieldnames(data)
+        buf = io.StringIO()
+        writer = csv.DictWriter(
+            buf, fieldnames=fieldnames, extrasaction="ignore", delimiter="\t"
+        )
+        writer.writeheader()
+        writer.writerows(data)
+        return buf.getvalue().encode("utf-8-sig")
+
+    @staticmethod
     def records_to_json_bytes(data: List[Dict[str, Any]], pretty: bool = True) -> bytes:
         """Render records as UTF-8 JSON bytes."""
         indent = 2 if pretty else None
@@ -140,6 +158,32 @@ class OutputFormatter:
         return output_path
     
     @staticmethod
+    def to_tsv(data: List[Dict[str, Any]], output_path: str) -> str:
+        """
+        Write data to TSV (tab-separated) format.
+
+        Args:
+            data: List of record dictionaries
+            output_path: Output file path
+
+        Returns:
+            Path to created file
+        """
+        if not data:
+            raise ValueError("No data to write")
+
+        # Ensure .tsv extension (append, don't use with_suffix - model names like
+        # "Gemini 3.1 Pro" contain dots that with_suffix would truncate)
+        output_path = str(output_path)
+        if not output_path.lower().endswith('.tsv'):
+            output_path += '.tsv'
+
+        with open(output_path, 'wb') as f:
+            f.write(OutputFormatter.records_to_tsv_bytes(data))
+
+        return output_path
+
+    @staticmethod
     def to_json(data: List[Dict[str, Any]], output_path: str, pretty: bool = True) -> str:
         """
         Write data to JSON format.
@@ -207,6 +251,9 @@ class OutputFormatter:
                 if fmt_lower == 'csv':
                     path = OutputFormatter.to_csv(data, base_path)
                     results['csv'] = path
+                elif fmt_lower == 'tsv':
+                    path = OutputFormatter.to_tsv(data, base_path)
+                    results['tsv'] = path
                 elif fmt_lower == 'json':
                     path = OutputFormatter.to_json(data, base_path)
                     results['json'] = path

@@ -150,6 +150,39 @@ Batch and staggered jobs submitted from the graphical interface can also be
 fetched (and, for staggered jobs, merged) from the **Batch downloads** page
 once they complete — no command line required.
 
+### Ensemble Analysis
+
+Run the same dataset through two different models, then compare their
+coordinate estimates to find where they agree (likely accurate) and where they
+diverge (worth a manual check):
+
+```bash
+placebot-ensemble
+```
+
+You pick which of the two output files is the **primary** (its values are
+carried forward), and PlaceBot matches records on their `Barcode`, computes the
+great-circle (haversine) distance between the two estimates, and tags each
+record with an agreement category:
+
+| Category | Distance between estimates |
+|----------|----------------------------|
+| close (<2km)    | < 2 km |
+| moderate (2-5km) | 2–5 km |
+| low (5-10km)    | 5–10 km |
+| none (>10km)    | > 10 km |
+| no comparison   | coordinates missing in either file, or barcode only in one file |
+
+The output TSV and CSV files contain the carried-forward records plus
+`Agreement_Category`, `Distance_km`, and the other model's
+`Secondary_Latitude`/`Secondary_Longitude` for reference, so you can filter
+straight to the records that need verifying. A summary report shows how many
+records fall into each category.
+
+The same workflow is available in the graphical interface on the **Ensemble
+analysis** page — just pick the two files from your output folder (or upload
+them) and click *Run comparison*.
+
 ### Cost Optimisation
 
 PlaceBot implements multiple cost-saving strategies:

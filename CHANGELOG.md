@@ -5,6 +5,22 @@ All notable changes to PlaceBot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Ensemble analysis.** Compare two model output files (CSV/TSV/JSON) for the
+  same dataset to flag records for manual verification. Records are matched on
+  `Barcode`, the haversine distance between the two coordinate estimates is
+  computed, and each record is tagged with an agreement category — close
+  (<2km), moderate (2-5km), low (5-10km), none (>10km), or "no comparison". The
+  output TSV/CSV carry forward the chosen primary file's values plus
+  `Agreement_Category`, `Distance_km`, and the secondary model's coordinates,
+  and a summary reports the per-category counts. Available as the new
+  `placebot-ensemble` command and the **Ensemble analysis** page in the GUI.
+- **TSV output format.** `OutputFormatter` can now write tab-separated values
+  (UTF-8 with BOM, same canonical column order as CSV); selectable as a `tsv`
+  output format and downloadable in the GUI.
+
 ## [1.2.5] - 2026-06-06
 
 ### Fixed

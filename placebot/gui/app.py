@@ -113,6 +113,10 @@ def records_to_csv_bytes(records: list) -> bytes:
     return OutputFormatter.records_to_csv_bytes(records)
 
 
+def records_to_tsv_bytes(records: list) -> bytes:
+    return OutputFormatter.records_to_tsv_bytes(records)
+
+
 def records_to_json_bytes(records: list) -> bytes:
     return OutputFormatter.records_to_json_bytes(records)
 
@@ -123,6 +127,7 @@ def records_to_geojson_bytes(records: list) -> bytes:
 
 _DOWNLOAD_BUILDERS = {
     "csv": ("text/csv", "csv", records_to_csv_bytes),
+    "tsv": ("text/tab-separated-values", "tsv", records_to_tsv_bytes),
     "json": ("application/json", "json", records_to_json_bytes),
     "geojson": ("application/geo+json", "geojson", records_to_geojson_bytes),
 }
@@ -241,7 +246,7 @@ def render_sidebar():
     st.sidebar.header("Navigation")
     page = st.sidebar.radio(
         "Go to",
-        ["Process data", "Batch downloads"],
+        ["Process data", "Batch downloads", "Ensemble analysis"],
         label_visibility="collapsed",
         key="page",
     )
@@ -1062,6 +1067,176 @@ def step_batch_downloads():
 
 
 # ---------------------------------------------------------------------------
+# Ensemble analysis page
+# ---------------------------------------------------------------------------
+
+
+def _list_output_files():
+    """Return comparable output files under the output folder (newest first).
+
+    Scans recursively (results land in dated sub-folders) for CSV/TSV/TXT/JSON,
+    skipping progress files, READMEs, GeoJSON, and batch-job metadata.
+    """
+    out_dir = str(get_output_dir())
+    valid_exts = (".csv", ".tsv", ".txt", ".json")
+    found = []
+    for root, _dirs, files in os.walk(out_dir):
+        if "batch_jobs" in root:
+            continue
+        for name in files:
+            lower = name.lower()
+            if not lower.endswith(valid_exts):
+                continue
+            if lower in ("readme.txt",) or lower.endswith("_progress.tsv"):
+                continue
+            path = os.path.join(root, name)
+            try:
+                if os.path.getsize(path) == 0:
+                    continue
+                mtime = os.path.getmtime(path)
+            except OSError:
+                continue
+            found.append((path, mtime))
+    found.sort(key=lambda t: t[1], reverse=True)
+    return [p for p, _ in found]
+
+
+def step_ensemble_analysis():
+    from placebot.core.ensemble_analysis import CATEGORIES, run_ensemble
+
+    st.header("Ensemble analysis")
+    st.write(
+        "Ran the same dataset through two models? Compare their coordinates "
+        "here. Records are matched on **Barcode**, and each gets an agreement "
+        "category and the distance (km) between the two estimates so you can "
+        "filter records for manual verification."
+    )
+
+    # Optional: bring in an external output file (CSV/TSV/JSON).
+    with st.expander("Upload an output file (optional)"):
+        uploaded = st.file_uploader(
+            "Add a CSV/TSV/JSON output file to the comparison list",
+            type=["csv", "tsv", "txt", "json"],
+            key="ensemble_upload",
+        )
+        if uploaded is not None:
+            dest = os.path.join(str(get_output_dir()), uploaded.name)
+            with open(dest, "wb") as f:
+                f.write(uploaded.getbuffer())
+            st.success(f"Added **{uploaded.name}** to your output folder.")
+
+    files = _list_output_files()
+    if len(files) < 2:
+        st.info(
+            "Need at least two output files to compare. Run two models on the "
+            "same dataset from **Process data**, or upload files above."
+        )
+        return
+
+    out_dir = str(get_output_dir())
+
+    def _label(path):
+        try:
+            return os.path.relpath(path, out_dir)
+        except ValueError:
+            return path
+
+    c1, c2 = st.columns(2)
+    primary = c1.selectbox(
+        "Primary file (values carried forward)",
+        files,
+        format_func=_label,
+        key="ensemble_primary",
+    )
+    secondary = c2.selectbox(
+        "Secondary file (compared against)",
+        files,
+        index=1 if len(files) > 1 else 0,
+        format_func=_label,
+        key="ensemble_secondary",
+    )
+
+    if primary == secondary:
+        st.warning("Pick two different files to compare.")
+        return
+
+    pair_key = f"{primary}|{secondary}"
+
+    if st.button("Run comparison", type="primary"):
+        with st.spinner("Comparing the two outputs…"):
+            try:
+                result = run_ensemble(primary, secondary)
+            except Exception as e:  # surface parse/IO errors to the user
+                result = {"error": str(e)}
+        result["_pair_key"] = pair_key
+        st.session_state.ensemble_result = result
+
+    result = st.session_state.get("ensemble_result")
+    # Only show results for the currently-selected pair.
+    if not result or result.get("_pair_key") != pair_key:
+        return
+
+    if result.get("error"):
+        st.error(f"Could not compare those files: {result['error']}")
+        return
+
+    records = result["records"]
+    total = result["total"]
+    if not records:
+        st.warning("No records to compare (empty or unreadable files).")
+        return
+
+    st.success(f"Compared {total:,} records.")
+
+    # Per-category counts.
+    cols = st.columns(len(CATEGORIES))
+    for col, cat in zip(cols, CATEGORIES):
+        col.metric(cat, f"{result['summary'].get(cat, 0):,}")
+
+    notes = []
+    if result["only_in_primary"]:
+        notes.append(f"{result['only_in_primary']:,} barcode(s) only in the primary file")
+    if result["only_in_secondary"]:
+        notes.append(f"{result['only_in_secondary']:,} only in the secondary file")
+    if result["duplicate_barcodes"]:
+        notes.append(f"{result['duplicate_barcodes']:,} duplicate barcode(s) in the secondary file (ignored)")
+    if notes:
+        st.caption(" · ".join(notes))
+
+    # Auto-save TSV + CSV into the output folder (cached on the result).
+    formats = ["tsv", "csv"]
+    stem = (
+        f"ensemble_{os.path.splitext(os.path.basename(primary))[0]}"
+        f"_vs_{os.path.splitext(os.path.basename(secondary))[0]}"
+    )
+    saved_files = result.get("saved_files")
+    if saved_files is None:
+        base_path = os.path.join(out_dir, stem)
+        saved_files = OutputFormatter.write_output(records, base_path, formats)
+        result["saved_files"] = saved_files
+
+    st.write("**Saved to your output folder:**")
+    for fmt, path in saved_files.items():
+        st.write(f"- `{os.path.basename(path)}` ({fmt.upper()})")
+    render_output_folder_link("Output folder")
+
+    try:
+        import pandas as pd
+
+        st.dataframe(pd.DataFrame(records), use_container_width=True)
+    except Exception:
+        st.write(records[:50])
+
+    _render_download_buttons(
+        records,
+        formats,
+        stem=stem,
+        key_prefix="ensemble",
+        heading="Or download a copy",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1086,6 +1261,10 @@ def main():
 
     if page == "Batch downloads":
         step_batch_downloads()
+        return
+
+    if page == "Ensemble analysis":
+        step_ensemble_analysis()
         return
 
     step = st.session_state.get("step", "dataset")
