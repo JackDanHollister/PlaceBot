@@ -10,14 +10,15 @@ API_VERSION = "v1"
 # API Key Configuration
 # IMPORTANT: Add your API key here or set OPENAI_API_KEY environment variable
 # Get your key at: https://platform.openai.com/api-keys
-API_KEY = "your_openai_api_key_here"  # Replace with your actual API key
+API_KEY = ""  # Leave blank: set OPENAI_API_KEY in your environment or via the GUI
 
-# Pricing Information (USD) with Automatic Caching - July 2025
-# Prompt Caching: Automatic 50% discount on cached input tokens (>1,024 tokens)
-COST_PER_1K_INPUT_TOKENS = 0.0025      # $2.50 per 1M input tokens
-COST_PER_1K_OUTPUT_TOKENS = 0.01       # $10.00 per 1M output tokens
-COST_PER_1K_CACHED_TOKENS = 0.00125    # $1.25 per 1M cached tokens (50% discount)
-ESTIMATED_COST_PER_RECORD = 0.0012     # Improved cost/performance vs GPT-4o
+# Pricing Information (USD) with Automatic Caching
+# Note: Verify current pricing at https://platform.openai.com/docs/pricing
+# Prompt Caching: Automatic discount on cached input tokens (>1,024 tokens)
+COST_PER_1K_INPUT_TOKENS = 0.002       # $2.00 per 1M input tokens
+COST_PER_1K_OUTPUT_TOKENS = 0.008      # $8.00 per 1M output tokens
+COST_PER_1K_CACHED_TOKENS = 0.0005     # ~$0.50 per 1M cached input tokens
+ESTIMATED_COST_PER_RECORD = 0.0008     # cost-efficient at scale with caching
 
 # Model Capabilities and Limits
 MAX_TOKENS = 1000000         # 1M token context window!

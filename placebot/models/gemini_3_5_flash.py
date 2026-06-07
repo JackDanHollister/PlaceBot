@@ -1,35 +1,36 @@
-# Gemini 2.5 Flash-Lite Model Profile with Native Thinking
-# Google's fastest and most cost-efficient 2.5 model with adaptive thinking
+# Gemini 3.5 Flash Model Profile with Implicit Caching
+# Google's current-generation stable model with best price-performance
 
-MODEL_NAME = "Gemini 2.5 Flash-Lite"
+MODEL_NAME = "Gemini 3.5 Flash"
 MODEL_PROVIDER = "Google"
-MODEL_ID = "gemini-2.5-flash-lite"
-API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
+MODEL_ID = "gemini-3.5-flash"
+API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
 
 # API Key Configuration
 # IMPORTANT: Add your API key here or set GOOGLE_API_KEY environment variable
 # Get your key at: https://aistudio.google.com/app/apikey
-API_KEY = "your_google_api_key_here"  # Replace with your actual API key
+API_KEY = ""  # Leave blank: set GOOGLE_API_KEY in your environment or via the GUI
 
-# Pricing Information (USD) with Native Thinking - August 2025
-# Native Thinking: Adaptive thinking with optional toggle for demanding tasks
-COST_PER_1K_INPUT_TOKENS = 0.0001      # $0.10 per 1M input tokens (lowest cost!)
-COST_PER_1K_OUTPUT_TOKENS = 0.0004     # $0.40 per 1M output tokens
-ESTIMATED_COST_PER_RECORD = 0.00005    # Most cost-effective model in 2.5 family
+# Pricing Information (USD) with Implicit Caching
+# Note: Verify current pricing at https://ai.google.dev/gemini-api/docs/pricing
+COST_PER_1K_INPUT_TOKENS = 0.0015     # $1.50 per 1M input tokens
+COST_PER_1K_OUTPUT_TOKENS = 0.009     # $9.00 per 1M output tokens
+COST_PER_1K_CACHED_TOKENS = 0.000375  # ~$0.375 per 1M cached input tokens
+ESTIMATED_COST_PER_RECORD = 0.0003    # cost-effective at scale
 
 # Model Capabilities and Limits
 MAX_TOKENS = 1000000         # 1M token context window
 MAX_OUTPUT_TOKENS = 8192     # Max output tokens per request
 CONTEXT_WINDOW = 1000000     # 1M token context window
-REQUESTS_PER_MINUTE = 1500   # Higher rate limits for lite model
+REQUESTS_PER_MINUTE = 1000   # Rate limit
 
 # Model Characteristics
-SPEED = "Fastest"            # Best in-class speed in 2.5 family
-ACCURACY = "High"            # High-quality performance for size
-COST_EFFICIENCY = "Excellent" # Lowest cost 2.5 model
-THINKING = "Adaptive"        # Optional thinking capabilities
-REASONING = "Selective"      # Thinking can be toggled for complex tasks
-BEST_FOR = "High-volume processing, latency-sensitive tasks, translation, classification, cost-efficient operations"
+SPEED = "Very Fast"           # Optimized for speed
+ACCURACY = "High"             # Well-rounded capabilities
+COST_EFFICIENCY = "Excellent" # Best price-performance
+CACHING = "Implicit"          # Automatic caching (75% savings)
+REASONING = "Adaptive"        # Thinking capabilities built-in
+BEST_FOR = "High-volume processing, cost-sensitive applications, balanced performance"
 
 # Special Headers for API
 def get_headers(api_key: str) -> dict:
@@ -38,7 +39,7 @@ def get_headers(api_key: str) -> dict:
         "x-goog-api-key": api_key
     }
 
-# Request format for Gemini API (Adaptive thinking - toggleable for complex tasks)
+# Request format for Gemini API (Implicit caching automatic for prompts >1,024 tokens)
 def format_request(prompt: str, max_tokens: int = MAX_OUTPUT_TOKENS, cached_content_name: str = None) -> dict:
     request_body = {
         "contents": [

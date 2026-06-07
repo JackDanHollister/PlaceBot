@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template: build.sh substitutes @VERSION@ before copying into the .app. -->
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>PlaceBot</string>
+    <key>CFBundleDisplayName</key>
+    <string>PlaceBot</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.jackhollister.placebot</string>
+    <key>CFBundleVersion</key>
+    <string>@VERSION@</string>
+    <key>CFBundleShortVersionString</key>
+    <string>@VERSION@</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>PlaceBot</string>
+    <key>CFBundleIconFile</key>
+    <string>placebot.icns</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>

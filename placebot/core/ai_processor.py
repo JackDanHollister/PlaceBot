@@ -203,7 +203,7 @@ Respond with JSON only."""
                     }
                     
                     request_body = {
-                        'model': self.model_config.get('model_id', 'claude-3-haiku-20240307'),
+                        'model': self.model_config.get('model_id', 'claude-haiku-4-5'),
                         'max_tokens': self.model_config.get('max_output_tokens', 1000),
                         'messages': messages
                     }
@@ -258,7 +258,7 @@ Respond with JSON only."""
                         }
                         prompt = self._build_prompt(locality, country, coordinate_context)
                         request_body = {
-                            'model': self.model_config.get('model_id', 'claude-3-haiku-20240307'),
+                            'model': self.model_config.get('model_id', 'claude-haiku-4-5'),
                             'max_tokens': self.model_config.get('max_output_tokens', 500),
                             'messages': [{'role': 'user', 'content': prompt}]
                         }
@@ -270,7 +270,7 @@ Respond with JSON only."""
                     endpoint,
                     headers=headers,
                     json=request_body,
-                    timeout=30
+                    timeout=self.model_config.get('request_timeout', 30)
                 )
                 
                 print(f"API Response: {response.status_code}")

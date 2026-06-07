@@ -66,10 +66,128 @@ def build_coordinate_context_for_prompt(record: Dict[str, Any]) -> str:
     return "\n\nNO EXISTING COORDINATES: Please estimate coordinates from locality if possible"
 
 
+def _strip_markdown_fences(text: str) -> str:
+    """Strip leading/trailing ``` / ```json fences from a model response."""
+    text = (text or "").strip()
+    if text.startswith('```'):
+        text = text.split('\n', 1)[1] if '\n' in text else text[3:]
+    if text.endswith('```'):
+        text = text.rsplit('\n', 1)[0] if '\n' in text else text[:-3]
+    return text.strip()
+
+
+def _extract_gemini_text_from_dict(response) -> str:
+    """
+    Extract concatenated text from a Gemini REST response dict.
+
+    Tolerant of thinking-model responses (which can include non-text "thought"
+    parts), of `content` being a dict or a bare list of parts, and of missing
+    keys - returns "" rather than raising, so a single odd record never crashes
+    the whole download.
+    """
+    if not isinstance(response, dict):
+        return ""
+    candidates = response.get('candidates')
+    if not isinstance(candidates, list) or not candidates:
+        return ""
+    cand = candidates[0] if isinstance(candidates[0], dict) else {}
+    content = cand.get('content')
+    if isinstance(content, dict):
+        parts = content.get('parts') or []
+    elif isinstance(content, list):
+        parts = content
+    else:
+        parts = []
+    texts = [p.get('text', '') for p in parts if isinstance(p, dict) and p.get('text')]
+    return "".join(texts).strip()
+
+
+def _gemini_finish_reason(response) -> str:
+    """Best-effort extraction of the finishReason from a Gemini response dict."""
+    try:
+        return (response.get('candidates') or [{}])[0].get('finishReason', '')
+    except Exception:
+        return ''
+
+
+def _deep_collect_text(obj, _depth=0):
+    """
+    Recursively collect every string under a "text" key, anywhere in a parsed
+    response. Structure-agnostic: works regardless of how the batch results file
+    nests candidates/content/parts, and never raises.
+    """
+    out = []
+    if _depth > 12:
+        return out
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == 'text' and isinstance(v, str):
+                out.append(v)
+            else:
+                out.extend(_deep_collect_text(v, _depth + 1))
+    elif isinstance(obj, list):
+        for item in obj:
+            out.extend(_deep_collect_text(item, _depth + 1))
+    return out
+
+
+def _extract_first_json_object(text):
+    """Return the first balanced, parseable JSON object in `text`, or None.
+    Tolerates surrounding prose and braces inside string values."""
+    if not text:
+        return None
+    text = text.strip()
+    try:
+        obj = json.loads(text)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        pass
+    start = text.find('{')
+    while start != -1:
+        depth = 0
+        in_str = False
+        esc = False
+        for i in range(start, len(text)):
+            c = text[i]
+            if esc:
+                esc = False
+                continue
+            if c == '\\':
+                esc = True
+                continue
+            if c == '"':
+                in_str = not in_str
+            elif not in_str:
+                if c == '{':
+                    depth += 1
+                elif c == '}':
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            return json.loads(text[start:i + 1])
+                        except Exception:
+                            break
+        start = text.find('{', start + 1)
+    return None
+
+
+def _find_error_message(obj, _depth=0):
+    """Best-effort extraction of an error/blocked-reason message from a result."""
+    if _depth > 12 or not isinstance(obj, dict):
+        return ''
+    err = obj.get('error')
+    if isinstance(err, dict) and err.get('message'):
+        return str(err['message'])
+    if isinstance(err, str) and err:
+        return err
+    finish = _gemini_finish_reason(obj.get('response') if 'response' in obj else obj)
+    return f'finishReason={finish}' if finish else ''
+
+
 class AnthropicBatchProcessor:
     """Handles async batch processing for Anthropic Claude models."""
     
-    def __init__(self, api_key: str, model_id: str = "claude-3-5-haiku-20241022"):
+    def __init__(self, api_key: str, model_id: str = "claude-haiku-4-5"):
         """
         Initialize Anthropic batch processor.
         
@@ -333,7 +451,7 @@ class AnthropicBatchProcessor:
 class OpenAIBatchProcessor:
     """Handles async batch processing for OpenAI models."""
     
-    def __init__(self, api_key: str, model_id: str = "gpt-4o-mini"):
+    def __init__(self, api_key: str, model_id: str = "gpt-4.1-mini"):
         """
         Initialize OpenAI batch processor.
         
@@ -361,7 +479,13 @@ class OpenAIBatchProcessor:
             Path to created JSONL file
         """
         import json
-        
+
+        # Reasoning models (GPT-5 family, o-series) need minimal reasoning effort
+        # and a larger token budget so reasoning tokens don't crowd out the JSON
+        # output. They also reject sampling params (handled by not sending any).
+        model_lower = (self.model_id or "").lower()
+        is_reasoning = model_lower.startswith("gpt-5") or model_lower.startswith("o")
+
         with open(output_file, 'w', encoding='utf-8') as f:
             for record in records:
                 barcode = record.get('Barcode', f'record_{records.index(record)}')
@@ -373,23 +497,27 @@ class OpenAIBatchProcessor:
 
                 # Build coordinate context from preprocessing
                 coordinate_context = build_coordinate_context_for_prompt(record)
-                
+
+                body = {
+                    "model": self.model_id,
+                    "messages": [{
+                        "role": "user",
+                        "content": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}{coordinate_context}"
+                    }],
+                    "max_completion_tokens": 4000 if is_reasoning else 1000,
+                    "response_format": {"type": "json_object"}
+                }
+                if is_reasoning:
+                    body["reasoning_effort"] = "minimal"
+
                 request = {
                     "custom_id": barcode,
                     "method": "POST",
                     "url": "/v1/chat/completions",
-                    "body": {
-                        "model": self.model_id,
-                        "messages": [{
-                            "role": "user",
-                            "content": f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}{coordinate_context}"
-                        }],
-                        "max_tokens": 1000,
-                        "response_format": {"type": "json_object"}
-                    }
+                    "body": body
                 }
                 f.write(json.dumps(request, ensure_ascii=False) + '\n')
-        
+
         return output_file
     
     def submit_batch(self, batch_file_path: str, 
@@ -610,7 +738,7 @@ class OpenAIBatchProcessor:
 class GeminiBatchProcessor:
     """Handles async batch processing for Gemini models using REST API."""
     
-    def __init__(self, api_key: str, model_id: str = "gemini-2.0-flash-exp"):
+    def __init__(self, api_key: str, model_id: str = "gemini-3.5-flash"):
         """
         Initialize Gemini batch processor.
         
@@ -624,8 +752,33 @@ class GeminiBatchProcessor:
         self.model_id = model_id
         self.client = genai.Client(api_key=api_key)
         self.batch_jobs = {}
-        
+
+        # The google-genai SDK warns "BATCH_STATE_* is not a valid JobState"
+        # because the live API uses BATCH_STATE_* names the SDK enum doesn't
+        # know yet. The warning is harmless; suppress it to avoid confusion.
+        import warnings
+        warnings.filterwarnings('ignore', message=r'.*is not a valid JobState.*')
+
         print("[SUCCESS] GeminiBatchProcessor initialized")
+
+    def _generation_config(self) -> dict:
+        """Build the generationConfig for batch requests.
+
+        - Forces JSON output to match the real-time path.
+        - Caps output tokens.
+        - For Pro (a reasoning model) sets a LOW thinking level so it reliably
+          returns the JSON answer instead of spending the turn thinking, which
+          intermittently yields finishReason=STOP with no parseable output.
+          Gated to Pro so Flash (which works at 5/5) is left unchanged.
+        """
+        config = {
+            "responseMimeType": "application/json",
+            "maxOutputTokens": 8192,
+        }
+        if 'pro' in (self.model_id or '').lower():
+            config["thinkingConfig"] = {"thinkingLevel": "low"}
+        return config
+
     
     def prepare_batch_file(self, records: List[Dict[str, Any]], 
                           prompt_template: str,
@@ -664,9 +817,7 @@ class GeminiBatchProcessor:
                             }],
                             "role": "user"
                         }],
-                        "generationConfig": {
-                            "responseMimeType": "application/json"
-                        }
+                        "generationConfig": self._generation_config()
                     }
                 }
                 f.write(json.dumps(request, ensure_ascii=False) + '\n')
@@ -1064,9 +1215,7 @@ class GeminiBatchProcessor:
                         "key": str(barcode),
                         "request": {
                             "contents": contents,
-                            "generationConfig": {
-                                "responseMimeType": "application/json"
-                            }
+                            "generationConfig": self._generation_config()
                         }
                     }
                     temp_file.write(json.dumps(jsonl_entry, ensure_ascii=False) + '\n')
@@ -1135,16 +1284,23 @@ class GeminiBatchProcessor:
             batch_job = self.client.batches.get(name=batch_id)
             
             # Map Gemini states to standard format
-            state_mapping = {
-                'JOB_STATE_PENDING': 'pending',
-                'JOB_STATE_RUNNING': 'running',
-                'JOB_STATE_SUCCEEDED': 'completed',
-                'JOB_STATE_FAILED': 'failed',
-                'JOB_STATE_CANCELLED': 'cancelled',
-                'JOB_STATE_EXPIRED': 'expired'
-            }
-            
-            status = state_mapping.get(batch_job.state.name, 'unknown')
+            # Match by substring so both JOB_STATE_* and BATCH_STATE_* (the live
+            # API's newer names) are handled.
+            state_name = (batch_job.state.name or '').upper()
+            if 'SUCCEEDED' in state_name:
+                status = 'completed'
+            elif 'FAILED' in state_name:
+                status = 'failed'
+            elif 'CANCEL' in state_name:
+                status = 'cancelled'
+            elif 'EXPIRED' in state_name:
+                status = 'expired'
+            elif 'RUNNING' in state_name:
+                status = 'running'
+            elif 'PENDING' in state_name:
+                status = 'pending'
+            else:
+                status = 'unknown'
             
             # Try to get counts if available
             total = 0
@@ -1213,8 +1369,9 @@ class GeminiBatchProcessor:
             # Get batch job
             batch_job = self.client.batches.get(name=batch_id)
             
-            # Check if succeeded
-            if batch_job.state.name != 'JOB_STATE_SUCCEEDED':
+            # Check if succeeded (match by substring so both JOB_STATE_* and the
+            # live API's BATCH_STATE_* names are recognised)
+            if 'SUCCEEDED' not in (batch_job.state.name or '').upper():
                 print(f"   [WARNING] Batch not ready: {batch_job.state.name}")
                 return []
             
@@ -1229,58 +1386,63 @@ class GeminiBatchProcessor:
                 # Parse JSONL
                 import json
                 for line in file_content.strip().split('\n'):
+                    if not line.strip():
+                        continue
+                    barcode = 'unknown'
                     try:
                         result = json.loads(line)
-                        
-                        # Extract the key and response
-                        barcode = result.get('key', 'unknown')
-                        
-                        if 'response' in result and result['response'].get('candidates'):
-                            # Get the text response
-                            text = result['response']['candidates'][0]['content']['parts'][0]['text']
-                            
-                            # Strip markdown code blocks if present
-                            text = text.strip()
-                            if text.startswith('```'):
-                                # Remove ```json or ``` at start
-                                text = text.split('\n', 1)[1] if '\n' in text else text[3:]
-                            if text.endswith('```'):
-                                # Remove ``` at end
-                                text = text.rsplit('\n', 1)[0] if '\n' in text else text[:-3]
-                            text = text.strip()
-                            
-                            # Try to parse as JSON
-                            try:
-                                parsed_json = json.loads(text)
-                                parsed_json['barcode'] = barcode
-                                parsed_json['success'] = True
-                                results.append(parsed_json)
-                            except json.JSONDecodeError:
-                                # If not JSON, return as raw text
-                                results.append({
-                                    'barcode': barcode,
-                                    'success': False,
-                                    'error': 'JSON parse error',
-                                    'raw_response': text
-                                })
-                        elif 'error' in result:
+                        if isinstance(result, dict):
+                            barcode = result.get('key', 'unknown')
+
+                        # Structure-agnostic: find the answer JSON anywhere in the
+                        # result (handles thinking-model multi-part responses and
+                        # whatever wrapper the batch results file uses).
+                        parsed = None
+                        for candidate_text in _deep_collect_text(result):
+                            parsed = _extract_first_json_object(
+                                _strip_markdown_fences(candidate_text))
+                            if parsed is not None:
+                                break
+
+                        if parsed is not None:
+                            parsed['barcode'] = barcode
+                            parsed['success'] = True
+                            results.append(parsed)
+                        else:
+                            err = _find_error_message(result) or 'No parseable JSON in response'
                             results.append({
                                 'barcode': barcode,
                                 'success': False,
-                                'error': result['error'].get('message', 'Unknown error')
+                                'error': err,
+                                'raw_response': line[:500],
                             })
                     except Exception as e:
+                        # Never silently drop a record - account for every line
                         print(f"   ⚠️  Error parsing line: {e}")
-                        
+                        results.append({
+                            'barcode': barcode,
+                            'success': False,
+                            'error': f'parse_failed: {e}',
+                            'raw_response': line[:500],
+                        })
+
             elif batch_job.dest and batch_job.dest.inlined_responses:
                 print(f"   📝 Processing inline responses...")
                 for response in batch_job.dest.inlined_responses:
                     try:
-                        if response.response and response.response.candidates:
-                            text = response.response.candidates[0].content.parts[0].text
-                            
+                        text = ""
+                        resp = getattr(response, 'response', None)
+                        candidates = getattr(resp, 'candidates', None) if resp else None
+                        if candidates:
+                            content = getattr(candidates[0], 'content', None)
+                            parts = getattr(content, 'parts', None) or []
+                            text = "".join(
+                                (getattr(p, 'text', '') or '') for p in parts
+                            ).strip()
+
+                        if text:
                             try:
-                                parsed_json = json.loads(text)
+                                parsed_json = json.loads(_strip_markdown_fences(text))
                                 parsed_json['success'] = True
                                 results.append(parsed_json)
                             except json.JSONDecodeError:
@@ -1289,13 +1451,22 @@ class GeminiBatchProcessor:
                                     'error': 'JSON parse error',
                                     'raw_response': text
                                 })
-                        elif response.error:
+                        elif getattr(response, 'error', None):
                             results.append({
                                 'success': False,
                                 'error': str(response.error)
                             })
+                        else:
+                            results.append({
+                                'success': False,
+                                'error': 'No text in inline response'
+                            })
                     except Exception as e:
                         print(f"   [WARNING] Error processing response: {e}")
+                        results.append({
+                            'success': False,
+                            'error': f'parse_failed: {e}'
+                        })
             
             print(f"   [INFO] Successful: {sum(1 for r in results if r.get('success'))}")
             print(f"   [INFO] Failed: {sum(1 for r in results if not r.get('success'))}")

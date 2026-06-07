@@ -251,24 +251,11 @@ class OutputManager:
             # Ensure output directory exists
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             
-            # Get all unique fieldnames from all records
-            fieldnames = set()
-            for record in records:
-                fieldnames.update(record.keys())
-            
-            # Define desired column order
-            desired_order = [
-                'Barcode', 'Locality verbatim', 'Country', 'Country_Processed', 
-                'State', 'Region', 'Sector', 'Exact_Site', 'Elevation', 
-                'Elevation_Original', 'Latitude', 'Longitude', 
-                'Coordinate_Radius_Meters', 'Coordinate_Source', 
-                'Confidence', 'Processing_Notes'
-            ]
-            
-            # Order fieldnames according to desired order, with any extras at the end
-            fieldnames = [col for col in desired_order if col in fieldnames] + \
-                         sorted([col for col in fieldnames if col not in desired_order])
-            
+            # Use the shared canonical column order so the .tsv lines up with
+            # the CSV/JSON/GeoJSON exports (CLI and GUI alike).
+            from placebot.core.output_formatter import order_fieldnames
+            fieldnames = order_fieldnames(records)
+
             # Write TSV file
             with open(output_path, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter='\t')

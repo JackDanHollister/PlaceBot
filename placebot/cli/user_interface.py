@@ -17,7 +17,7 @@ class UserInterface:
     @staticmethod
     def show_welcome():
         """Display welcome message and program information."""
-        print("🌍 BGE LOCALITY DATASET PROCESSOR")
+        print("🌍 PLACEBOT — LOCALITY DATASET PROCESSOR")
         print("=" * 50)
         print("📍 Interactive tool for cleaning museum locality data")
         print("🤖 Uses AI to enhance coordinates and geographic information")

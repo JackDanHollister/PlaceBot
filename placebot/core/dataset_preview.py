@@ -50,10 +50,10 @@ class DatasetPreview:
         # Basic counts
         total_records = len(data)
         
-        # Get all field names
+        # Get all field names (guard against None keys from ragged CSV rows)
         all_fields = set()
         for record in data:
-            all_fields.update(record.keys())
+            all_fields.update(k for k in record.keys() if isinstance(k, str))
         
         # Check for coordinate fields
         has_lat = any(k in all_fields for k in ['latitude', 'lat'])

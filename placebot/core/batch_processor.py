@@ -10,7 +10,7 @@ Handles batching, progress tracking, and error recovery.
 import time
 import os
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Callable, Dict, List, Optional, Any
 
 from .coordinate_utils import preprocess_coordinates
 from .ai_processor import AIProcessor
@@ -41,17 +41,22 @@ class BatchProcessor:
             'end_time': None
         }
     
-    def process_dataset(self, dataset_info: Dict[str, Any], model_config: Dict[str, Any], 
-                       batch_size: int = 8, save_progress: bool = True) -> Dict[str, Any]:
+    def process_dataset(self, dataset_info: Dict[str, Any], model_config: Dict[str, Any],
+                       batch_size: int = 8, save_progress: bool = True,
+                       progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
         """
         Process an entire dataset using AI enhancement with resume capability.
-        
+
         Args:
             dataset_info: Dataset information from DatasetManager
             model_config: AI model configuration
             batch_size: Number of records to process per batch
             save_progress: Whether to save progress during processing
-            
+            progress_callback: Optional callable invoked after each record with a
+                dict of ``{'processed': int, 'total': int, 'record': dict}``.
+                Used by non-CLI front-ends (e.g. the GUI) to drive a progress
+                bar. Defaults to None so the CLI behaviour is unchanged.
+
         Returns:
             Processing results and statistics
         """
@@ -109,20 +114,26 @@ class BatchProcessor:
                     start_index = 0
                     remaining_records = records
         # Process in batches
-        total_batches = (len(remaining_records) + batch_size - 1) // batch_size
-        
+        total_to_process = len(remaining_records)
+        total_batches = (total_to_process + batch_size - 1) // batch_size
+
         for batch_num in range(1, total_batches + 1):
             # Get batch from remaining records
             start_idx = (batch_num - 1) * batch_size
             end_idx = min(start_idx + batch_size, len(remaining_records))
             batch = remaining_records[start_idx:end_idx]
-            
+
             # Show progress
             UserInterface.show_batch_progress(batch_num, total_batches, batch_size, len(batch))
-            
+
             try:
                 # Process batch
-                processed_batch = self._process_batch(batch, ai_processor)
+                processed_batch = self._process_batch(
+                    batch, ai_processor,
+                    progress_callback=progress_callback,
+                    processed_offset=start_idx,
+                    total=total_to_process
+                )
                 all_processed_records.extend(processed_batch)
                 
                 self.processing_stats['processed_records'] += len(processed_batch)
@@ -180,28 +191,45 @@ class BatchProcessor:
             )
         }
     
-    def _process_batch(self, batch: List[Dict[str, Any]], ai_processor: AIProcessor) -> List[Dict[str, Any]]:
+    def _process_batch(self, batch: List[Dict[str, Any]], ai_processor: AIProcessor,
+                       progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+                       processed_offset: int = 0, total: int = 0) -> List[Dict[str, Any]]:
         """
         Process a single batch of records.
-        
+
         Args:
             batch: List of records to process
             ai_processor: AI processor instance
-            
+            progress_callback: Optional callable invoked after each record
+            processed_offset: Number of records already processed before this batch
+            total: Total number of records being processed (for progress)
+
         Returns:
             List of processed records
         """
         processed_batch = []
-        
-        for record in batch:
+
+        for i, record in enumerate(batch):
             processed_record = self._process_single_record(record, ai_processor)
             processed_batch.append(processed_record)
-            
+
             # Show individual record progress
             barcode = record.get('Barcode', 'Unknown')
             locality = record.get('Locality verbatim', '')
             UserInterface.show_record_processing(barcode, locality, processed_record)
-        
+
+            # Notify external front-ends (e.g. GUI progress bar)
+            if progress_callback is not None:
+                try:
+                    progress_callback({
+                        'processed': processed_offset + i + 1,
+                        'total': total,
+                        'record': processed_record
+                    })
+                except Exception:
+                    # A misbehaving callback must never break processing
+                    pass
+
         return processed_batch
     
     def _process_single_record(self, record: Dict[str, Any], ai_processor: AIProcessor) -> Dict[str, Any]:

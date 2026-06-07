@@ -3,6 +3,7 @@ include LICENSE
 include requirements.txt
 recursive-include placebot *.py
 recursive-include placebot/data *.md
+recursive-include placebot/gui *.png
 exclude tests/*
 exclude results/*
 exclude output/*

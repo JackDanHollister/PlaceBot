@@ -1,0 +1,10 @@
+#!/bin/bash
+# PlaceBot.app launch stub.
+#
+# Runs the bundled, relocatable Python against the installed placebot package.
+# Because placebot is pip-installed (not frozen), the GUI launcher's
+# Path(__file__)/importlib.resources lookups resolve normally.
+set -e
+HERE="$(cd "$(dirname "$0")/.." && pwd)"     # .../PlaceBot.app/Contents
+PY="$HERE/Resources/python/bin/python3"
+exec "$PY" -m placebot.gui.launcher

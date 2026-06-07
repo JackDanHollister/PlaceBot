@@ -18,8 +18,16 @@ Features:
 - Cost estimation and model comparison
 """
 
-__version__ = "1.0.0"
-__author__ = "Your Name"
+try:
+    from importlib.metadata import PackageNotFoundError, version as _pkg_version
+    try:
+        __version__ = _pkg_version("placebot")
+    except PackageNotFoundError:  # running from a source tree without install
+        __version__ = "0.0.0+unknown"
+except ImportError:  # Python < 3.8 (defensive; project targets >=3.8)
+    __version__ = "0.0.0+unknown"
+
+__author__ = "Jack Hollister"
 __license__ = "MIT"
 
 __all__ = [

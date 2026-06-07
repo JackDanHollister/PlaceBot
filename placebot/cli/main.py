@@ -27,6 +27,8 @@ from placebot.core.config import get_config
 from placebot.core.data_dirs import setup_directories, get_input_dir, get_output_dir, show_directory_info
 from placebot.cli.user_interface import UserInterface
 
+from placebot import __version__
+
 
 def setup_api_keys():
     """Check and setup API keys from .env file or environment variables."""
@@ -183,13 +185,11 @@ def run_interactive_mode(args):
             prompt_template = base_instructions
             
             # Create output directory for batch files
-            import os
             batch_dir = os.path.join(output_dir, 'batch_jobs')
             os.makedirs(batch_dir, exist_ok=True)
-            
+
             # Prepare batch file based on provider
             from datetime import datetime
-            import os
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             # Extract filename without extension
             filename_stem = os.path.splitext(selected_dataset['filename'])[0]
@@ -396,9 +396,20 @@ def run_interactive_mode(args):
             batch_size=batch_size,
             save_progress=True
         )
-        
+
         print(f"\n✅ Real-time processing completed!")
         print(f"   Results saved to output directory")
+
+        # Export the user-selected formats (CSV/JSON/GeoJSON) alongside the
+        # canonical .tsv. Without this, real-time mode only ever wrote a TSV
+        # and ignored the format choice made earlier.
+        records = results.get('processed_records', [])
+        tsv_path = results.get('output_path', '')
+        if records and tsv_path:
+            base_path = os.path.splitext(tsv_path)[0]
+            written = OutputFormatter.write_output(records, base_path, output_formats)
+            for fmt, path in written.items():
+                print(f"   💾 {fmt.upper()} saved: {path}")
     
     return 0
 
@@ -411,15 +422,15 @@ def main():
         epilog="""
 Examples:
   # Interactive mode (default)
-  locality-processor
-  
+  placebot
+
+  # Launch the graphical interface
+  placebot-gui
+
   # Specify custom directories
-  locality-processor --input-dir ./data --output-dir ./results
-  
-  # Batch mode (coming soon)
-  locality-processor --batch
-  
-For more information, visit: https://github.com/yourusername/locality-processor
+  placebot --input-dir ./data --output-dir ./results
+
+For more information, visit: https://github.com/JackDanHollister/PlaceBot
 """
     )
     
@@ -452,7 +463,7 @@ For more information, visit: https://github.com/yourusername/locality-processor
     parser.add_argument(
         '--version',
         action='version',
-        version='placebot 1.0.0'
+        version=f'placebot {__version__}'
     )
     
     args = parser.parse_args()
@@ -464,8 +475,8 @@ For more information, visit: https://github.com/yourusername/locality-processor
     
     # Check if batch mode is requested
     if args.batch:
-        print("🚧 Batch mode is coming in Phase 3!")
-        print("💡 For now, using interactive real-time mode...\n")
+        print("💡 Batch processing is available — just choose 'Batch' (or "
+              "'Staggered') when prompted for a processing mode.\n")
     
     # Run interactive mode
     try:
