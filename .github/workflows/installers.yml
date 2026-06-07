@@ -131,7 +131,10 @@ jobs:
   release:
     name: Attach installers to release
     needs: [windows, macos]
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Real releases only: a v* tag WITHOUT a pre-release suffix (e.g. v1.2.5).
+    # Pre-release tags like v1.2.5-rc1 still build + upload the installers as run
+    # artifacts (for pre-merge testing) but do not create a GitHub Release.
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
     runs-on: ubuntu-latest
     permissions:
       contents: write  # required to create/update the GitHub Release
