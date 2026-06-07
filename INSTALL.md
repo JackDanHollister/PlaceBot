@@ -15,7 +15,25 @@ python --version  # Should be 3.8+
 
 ### 2. Install PlaceBot
 
-**Option A — Install from PyPI (recommended for most users)**
+**Option A — One-click installer (no Python required, easiest for most staff)**
+
+If you just want to click an icon and go, download a pre-built installer from the
+[**Releases page**](https://github.com/JackDanHollister/PlaceBot/releases):
+
+| Platform | Download | How to install |
+|----------|----------|----------------|
+| **Windows** | `PlaceBot-Setup-<version>.exe` | Double-click, follow the prompts. A **PlaceBot** icon is added to your Desktop and Start Menu. |
+| **macOS** | `PlaceBot-<version>.dmg` | Double-click, drag **PlaceBot** into Applications. Launch from Launchpad/Spotlight. |
+
+These bundle their own Python, so you do **not** need Python installed. Then open
+PlaceBot from its desktop icon and skip straight to step 3 (API keys).
+
+> First launch on an **unsigned** build: Windows may show a SmartScreen warning
+> (click *More info → Run anyway*); on macOS, **right-click the app → Open** the
+> first time (or run `xattr -dr com.apple.quarantine /Applications/PlaceBot.app`).
+> Code signing is on the roadmap to remove these prompts.
+
+**Option B — Install from PyPI (recommended for technical users)**
 ```bash
 # pipx keeps PlaceBot isolated from your other Python tools
 pipx install placebot          # or:  pip install placebot
@@ -24,7 +42,7 @@ pipx install placebot          # or:  pip install placebot
 pipx install "placebot[gui]"   # or:  pip install "placebot[gui]"
 ```
 
-**Option B — Install from source (for development)**
+**Option C — Install from source (for development)**
 ```bash
 # Clone the repository
 git clone https://github.com/JackDanHollister/PlaceBot.git
@@ -75,7 +93,7 @@ GOOGLE_API_KEY=your-google-key-here
 # Check PlaceBot is installed
 placebot --version
 
-# Should output: placebot 1.0.0
+# Should output: placebot <version>  (e.g. placebot 1.2.5)
 ```
 
 ### 6. Test with Sample Data

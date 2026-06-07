@@ -27,6 +27,8 @@ from placebot.core.config import get_config
 from placebot.core.data_dirs import setup_directories, get_input_dir, get_output_dir, show_directory_info
 from placebot.cli.user_interface import UserInterface
 
+from placebot import __version__
+
 
 def setup_api_keys():
     """Check and setup API keys from .env file or environment variables."""
@@ -461,7 +463,7 @@ For more information, visit: https://github.com/JackDanHollister/PlaceBot
     parser.add_argument(
         '--version',
         action='version',
-        version='placebot 1.2.5'
+        version=f'placebot {__version__}'
     )
     
     args = parser.parse_args()

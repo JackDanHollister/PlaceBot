@@ -84,3 +84,6 @@ temp/
 docs/_build/
 /_stuff
 /.venv
+
+# Generated installer icons (built in CI from the logo)
+installer/assets/

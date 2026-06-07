@@ -22,12 +22,20 @@ This tool is intended to support digitisation, curation, and research workflows 
 
 ### Installation
 
+**Just want to click an icon?** Download a one-click installer (no Python needed)
+from the [**Releases page**](https://github.com/JackDanHollister/PlaceBot/releases):
+`PlaceBot-Setup-<version>.exe` (Windows) or `PlaceBot-<version>.dmg` (macOS). It
+adds a desktop shortcut that opens the graphical interface. See
+[INSTALL.md](INSTALL.md) for first-launch notes on unsigned builds.
+
+**Prefer the command line / have Python?**
+
 ```bash
-# From PyPI (recommended) - includes the graphical interface
-pip install "placebot[gui]"
+# From PyPI (isolated install, ideal for an end-user CLI/GUI)
+pipx install "placebot[gui]"   # or:  pip install "placebot[gui]"
 
 # Or, for local Ollama model support
-pip install "placebot[local]"
+pipx install "placebot[local]"
 ```
 
 <details>
