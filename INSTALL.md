@@ -23,7 +23,7 @@ If you just want to click an icon and go, download a pre-built installer from th
 | Platform | Download | How to install |
 |----------|----------|----------------|
 | **Windows** | `PlaceBot-Setup-<version>.exe` | Double-click, follow the prompts. A **PlaceBot** icon is added to your Desktop and Start Menu. |
-| **macOS** | `PlaceBot-<version>.dmg` | Double-click, drag **PlaceBot** into Applications. Launch from Launchpad/Spotlight. |
+| **macOS** | `PlaceBot-<version>.dmg` | One download for **all** Macs (Intel and Apple Silicon). Double-click, drag **PlaceBot** into Applications. Launch from Launchpad/Spotlight. |
 
 These bundle their own Python, so you do **not** need Python installed. Then open
 PlaceBot from its desktop icon and skip straight to step 3 (API keys).
@@ -32,6 +32,10 @@ PlaceBot from its desktop icon and skip straight to step 3 (API keys).
 > (click *More info → Run anyway*); on macOS, **right-click the app → Open** the
 > first time (or run `xattr -dr com.apple.quarantine /Applications/PlaceBot.app`).
 > Code signing is on the roadmap to remove these prompts.
+>
+> On **Apple Silicon** Macs, the first launch may prompt a one-time install of
+> **Rosetta** (click *Install*) — PlaceBot ships as a single Intel build that
+> runs on every Mac. This takes a minute once; there's no noticeable slowdown.
 
 **Option B — Install from PyPI (recommended for technical users)**
 ```bash

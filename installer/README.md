@@ -12,10 +12,18 @@ also trigger it manually ("Run workflow") to dry-run on a branch.
 | OS | Output | Tooling |
 |----|--------|---------|
 | Windows | `dist/PlaceBot-Setup-<ver>.exe` | [Python embeddable package] + [Inno Setup] |
-| macOS | `dist/PlaceBot-<ver>-<arch>.dmg` | [python-build-standalone] + `hdiutil` |
+| macOS | `dist/PlaceBot-<ver>.dmg` | [python-build-standalone] + `hdiutil` |
 
 The bundled Python version and the macOS `python-build-standalone` release date
 are pinned once in the workflow `env:` block.
+
+**One macOS download for every Mac.** We build an **x86_64** `.dmg`: it runs
+natively on Intel and under **Rosetta 2** on Apple Silicon. A true `universal2`
+bundle isn't reliable because `pip` installs single-arch wheels for the binary
+dependencies (numpy, pandas, pydantic-core, …). CI builds it on the Apple Silicon
+runner and runs the x86_64 Python under Rosetta during the `pip` step so the
+correct x86_64 wheels are resolved. On Apple Silicon, first launch may prompt a
+one-time Rosetta install; runtime overhead is negligible for this API-bound app.
 
 ## Build locally
 
@@ -28,8 +36,8 @@ python installer/make_icons.py placebot/gui/placebot_logo.png installer/assets/p
 ./installer/windows/build.ps1 -WheelPath dist\placebot-<ver>-py3-none-any.whl -PythonVersion 3.11.9
 iscc /DMyAppVersion=<ver> /DStageDir=$PWD\build\win\PlaceBot /DIconFile=$PWD\installer\assets\placebot.ico installer\windows\placebot.iss
 
-# macOS
-WHEEL_PATH=dist/placebot-<ver>-py3-none-any.whl VERSION=<ver> ARCH=arm64 \
+# macOS (x86_64 build; on Apple Silicon, `softwareupdate --install-rosetta` first)
+WHEEL_PATH=dist/placebot-<ver>-py3-none-any.whl VERSION=<ver> ARCH=x86_64 \
   PYTHON_VERSION=3.11.9 PBS_DATE=20240814 bash installer/macos/build.sh
 ```
 

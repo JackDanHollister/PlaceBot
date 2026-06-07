@@ -94,17 +94,13 @@ jobs:
           path: dist/PlaceBot-Setup-*.exe
 
   macos:
-    name: macOS installer (${{ matrix.arch }})
+    name: macOS installer
     needs: wheel
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-14   # Apple Silicon
-            arch: arm64
-          - runner: macos-13   # Intel
-            arch: x86_64
-    runs-on: ${{ matrix.runner }}
+    # Single x86_64 .dmg that runs on Intel natively and on Apple Silicon via
+    # Rosetta - one download for every Mac. Built on the Apple Silicon runner
+    # (fast and readily available); the x86_64 Python runs under Rosetta during
+    # the pip step so the correct x86_64 wheels are resolved.
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
@@ -113,10 +109,13 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Ensure Rosetta 2 (to run the x86_64 Python while building)
+        run: softwareupdate --install-rosetta --agree-to-license
+
       - name: Build .app + .dmg
         env:
           VERSION: ${{ needs.wheel.outputs.version }}
-          ARCH: ${{ matrix.arch }}
+          ARCH: x86_64
           PYTHON_VERSION: ${{ env.PYTHON_EMBED_VERSION }}
           PBS_DATE: ${{ env.PBS_DATE }}
         run: |
@@ -125,8 +124,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: installer-macos-${{ matrix.arch }}
-          path: dist/PlaceBot-*-${{ matrix.arch }}.dmg
+          name: installer-macos
+          path: dist/PlaceBot-*.dmg
 
   release:
     name: Attach installers to release

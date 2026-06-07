@@ -6,10 +6,17 @@
 # placebot wheel (with the [gui] extra) into it, wraps it in a .app, and packages
 # the result as a .dmg with an /Applications symlink.
 #
+# We build for ARCH=x86_64 to ship a SINGLE Mac download: an x86_64 bundle runs
+# natively on Intel and transparently under Rosetta 2 on Apple Silicon. (A true
+# universal2 bundle is not reliable here because pip installs single-arch wheels
+# for the binary dependencies - numpy, pandas, pydantic-core, etc.) When built on
+# an Apple Silicon CI runner, the x86_64 Python executes under Rosetta during the
+# pip step, so pip correctly resolves x86_64 wheels.
+#
 # Required environment variables:
 #   WHEEL_PATH      Path to the built placebot wheel (dist/placebot-*.whl)
 #   VERSION         placebot version string (e.g. 1.2.5)
-#   ARCH            arm64 | x86_64        (target architecture)
+#   ARCH            x86_64 (single-download default) | arm64
 #   PYTHON_VERSION  CPython version to embed (e.g. 3.11.9)
 #   PBS_DATE        python-build-standalone release date tag (e.g. 20240814)
 #
@@ -78,7 +85,9 @@ DMG_STAGE="$BUILD/dmg"
 mkdir -p "$DMG_STAGE"
 cp -R "$APP" "$DMG_STAGE/"
 ln -s /Applications "$DMG_STAGE/Applications"
-DMG_OUT="$REPO_ROOT/dist/PlaceBot-${VERSION}-${ARCH}.dmg"
+# Single download for all Macs (x86_64 runs on Intel natively / Apple Silicon
+# via Rosetta), so the filename carries no architecture suffix.
+DMG_OUT="$REPO_ROOT/dist/PlaceBot-${VERSION}.dmg"
 mkdir -p "$REPO_ROOT/dist"
 rm -f "$DMG_OUT"
 echo "==> Building $DMG_OUT"
