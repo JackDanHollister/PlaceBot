@@ -1,18 +1,15 @@
-# Core dependencies
+# Core runtime dependencies. The authoritative package metadata is in
+# pyproject.toml; this file is kept for users who prefer requirements files.
+anthropic>=0.34.0
+openai>=1.45.0
+google-genai>=1.0.0
+pandas>=2.0.0
 requests>=2.25.1
-pandas>=1.3.0
-numpy>=1.20.0
 python-dotenv>=1.0.0
+tqdm>=4.65.0
+colorama>=0.4.6
 
-# Visualization and analysis
-matplotlib>=3.3.0
-seaborn>=0.11.0
-
-# Statistical analysis
-scipy>=1.7.0
-
-# Data processing
-openpyxl>=3.0.7  # For Excel file processing
-
-# Optional: Enhanced performance
-# numba>=0.53.0  # Uncomment for faster numerical operations
+# Optional extras:
+#   pip install -e ".[gui]"        # Streamlit graphical interface
+#   pip install -e ".[local]"      # Ollama local-model support
+#   pip install -e ".[dev]"        # tests, linting, formatting

@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   processing settings, running jobs, and collecting results.
 
 ### Fixed
+- **Repository cleanup for public review.** Removed an obsolete setup script,
+  a duplicate logo asset, and an empty example CSV; aligned requirements and
+  example benchmark wording with the current package and public README.
 - **Public install documentation.** README and INSTALL now describe the current
   GitHub/source install route, and label PyPI plus one-click installer downloads
   as release-pipeline work rather than currently available public downloads.
@@ -248,9 +251,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Model Performance**:
   - Speed range: 0.98s - 17.04s per record
-  - Accuracy: 97-100% success rate
-  - Cloud models: 100% success rate
-  - Local models: 97-100% success rate (FREE)
+  - Accuracy: high benchmark success rates in the original test set
+  - Cloud models: strongest benchmark performance in the original test set
+  - Local models: strong benchmark performance with no API cost
 
 ### Documentation
 - Comprehensive README with usage examples

@@ -98,9 +98,9 @@ PlaceBot will extract:
 - **Processing time**: Time taken per record
 - **Success rate**: Percentage of successful extractions
 
-Typical accuracy:
-- **Cloud models**: 100% success rate
-- **Local models**: 97-100% success rate
+Benchmark accuracy varies by provider, model version, and dataset. Use these
+example files for smoke testing and model comparison, not as a guarantee of
+performance on every collection.
 
 ## Dataset Sources
 
@@ -123,16 +123,17 @@ To test PlaceBot with your own localities:
 
 ## Performance Benchmarks
 
-Based on testing with these datasets:
+Historical benchmark context from earlier model runs:
 
 | Dataset | Records | Avg Time/Record | Success Rate |
 |---------|---------|-----------------|--------------|
-| sample_localities | 10 | 7.2s | 100% |
-| bombus_100 | 100 | 7.5s | 100% |
-| odonata_100 | 100 | 7.3s | 100% |
-| BGE_1_test100 | 100 | 7.1s | 100% |
+| sample_localities | 10 | 7.2s | high |
+| bombus_100 | 100 | 7.5s | high |
+| odonata_100 | 100 | 7.3s | high |
+| BGE_1_test100 | 100 | 7.1s | high |
 
-*Benchmarks using Claude Haiku-class models*
+Benchmarks used Claude Haiku-class models and should be rechecked against
+current provider models before reporting performance.
 
 ## Need Help?
 
@@ -144,4 +145,4 @@ See the main [README.md](../README.md) for:
 
 ---
 
-**Happy geocoding! 🗺️**
+Happy geocoding.

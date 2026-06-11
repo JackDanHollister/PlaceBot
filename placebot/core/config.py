@@ -255,7 +255,7 @@ class Config:
         """Create a .env template file with placeholder API keys."""
         template_path = self.config_dir / ".env.template"
 
-        template_content = """# Locality Processor API Keys
+        template_content = """# PlaceBot API Keys
 # ============================
 # Copy this file to .env and add your actual API keys
 

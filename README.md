@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="doc/placebot_logo.png" alt="PlaceBot Logo" width="300"/>
+  <img src="placebot/gui/placebot_logo.png" alt="PlaceBot Logo" width="300"/>
 </p>
 
 # PlaceBot - Multi-Vendor AI Locality Processor

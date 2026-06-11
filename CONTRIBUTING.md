@@ -57,8 +57,8 @@ cd PlaceBot
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install in development mode with all dependencies
-pip install -e ".[dev,local]"
+# Install in development mode with GUI and local-model extras
+pip install -e ".[dev,gui,local]"
 
 # Run tests
 pytest tests/
