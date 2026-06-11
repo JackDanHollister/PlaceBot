@@ -29,6 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are now added to the model picker automatically, so users can run whichever
   local models they already have rather than only the bundled Qwen profile
   names.
+- **Dedicated local model picker in the GUI.** The processing setup page now
+  has a `Local Ollama` model-source option with a direct selectbox for local
+  models, plus ready/not-installed status for each discovered Ollama profile.
+- **Always-visible local model setup in the GUI.** The sidebar now shows
+  whether Ollama is reachable, lists installed local models, and gives the
+  install/pull command when no local models are available.
+- **Header "How to use" guide in the GUI.** A top-of-page button now opens
+  step-by-step instructions for adding model access, choosing data, selecting
+  processing settings, running jobs, and collecting results.
 
 ### Fixed
 - **GUI API-key handling is session-only by default.** Pasted Anthropic,

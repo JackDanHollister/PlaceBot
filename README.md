@@ -15,7 +15,7 @@ This tool is intended to support digitisation, curation, and research workflows 
 - **Cost Optimisation**: Up to 90% savings with advanced caching strategies
 - **Batch Processing**: 50% cost reduction using asynchronous batch APIs
 - **High Accuracy**: 97-100% success rate on coordinate extraction
-- **Privacy Options**: Local Qwen models for offline processing
+- **Privacy Options**: Local models via Ollama for offline processing
 - **Performance Tracking**: Built-in benchmarking and comparison tools
 - **Production Ready**: Tested on 100+ records, scales to thousands
 
@@ -57,6 +57,7 @@ placebot-gui
 
 This opens PlaceBot in your browser. From the graphical interface you can:
 
+- Use the top **How to use** button for step-by-step workflow instructions.
 - Paste your API keys in the sidebar, including multiple Gemini keys for very
   large jobs. Keys are session-only by default; tick **Remember on this
   computer** if you want PlaceBot to save them locally in `~/.placebot/.env`.
@@ -126,6 +127,17 @@ Ollama/Qwen models, plus OpenRouter profiles that can route to several vendors
 through one key. Speed/accuracy figures are indicative (measured on earlier
 model versions); cost is the per-token list price tier. Verify current pricing
 with each provider.
+
+For local processing, PlaceBot currently uses [Ollama](https://ollama.com/) to
+host and run models on your own machine. Ollama is not the only local model
+runner available, but it gives PlaceBot a simple, cross-platform way to discover
+installed models and call them from the same workflow as cloud models. The model
+profile system is modular, so other local backends can be added later.
+
+In the GUI, the sidebar shows **Local models (Ollama)** on every page. It lists
+installed local models when Ollama is running, or gives the install/pull command
+if setup is still needed. After choosing a dataset, use **Model source → Local
+Ollama** to select one of the local models for processing.
 
 | Vendor | Model | Cost | Best For |
 |--------|-------|------|----------|

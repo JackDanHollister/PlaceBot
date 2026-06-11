@@ -72,6 +72,46 @@ def test_model_has_key_for_local_without_key():
     )
 
 
+def test_model_select_label_includes_id_and_readiness():
+    label = app._model_select_label(
+        {
+            "name": "Ollama: qwen3:8b (Local)",
+            "model_id": "qwen3:8b",
+            "provider": "Ollama",
+            "local_ready": True,
+        }
+    )
+
+    assert "Ollama: qwen3:8b (Local)" in label
+    assert "qwen3:8b" in label
+    assert "Yes" in label
+
+
+def test_ollama_model_sidebar_label_includes_model_metadata():
+    label = app._ollama_model_sidebar_label(
+        {
+            "name": "qwen3:8b",
+            "details": {
+                "parameter_size": "8B",
+                "family": "qwen3",
+                "quantization_level": "Q4_K_M",
+            },
+        }
+    )
+
+    assert label == "`qwen3:8b` (8B, qwen3, Q4_K_M)"
+
+
+def test_how_to_use_steps_cover_main_workflow():
+    steps = app._how_to_use_steps()
+
+    assert len(steps) >= 5
+    headings = [heading for heading, _ in steps]
+    assert "Add model access" in headings
+    assert "Choose your data" in headings
+    assert "Run and collect results" in headings
+
+
 def test_processing_counts_detects_failed_rows():
     records = [
         {"Processing_Notes": "", "Coordinate_Source": "ai"},

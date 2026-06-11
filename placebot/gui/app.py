@@ -40,6 +40,7 @@ from placebot.core.data_dirs import (
 from placebot.core.file_manager import DatasetManager, OutputManager
 from placebot.core.dataset_preview import DatasetPreview
 from placebot.core.model_selector import (
+    get_ollama_models,
     is_local_model_config,
     load_all_model_profiles,
     load_model_profile,
@@ -218,6 +219,77 @@ def _model_ready_label(model_config: dict) -> str:
     return "Needs API key"
 
 
+def _model_select_label(model_config: dict) -> str:
+    """Readable label for selectbox-style model pickers."""
+    name = model_config.get("name", model_config.get("_file", "Unknown model"))
+    model_id = model_config.get("model_id", "")
+    ready = _model_ready_label(model_config)
+    if model_id:
+        return f"{name} — {model_id} — {ready}"
+    return f"{name} — {ready}"
+
+
+def _ollama_model_sidebar_label(model_info: dict) -> str:
+    """Readable installed-model label for the local setup sidebar."""
+    name = model_info.get("name", "Unknown model")
+    details = model_info.get("details") or {}
+    metadata = ", ".join(
+        item
+        for item in (
+            details.get("parameter_size"),
+            details.get("family"),
+            details.get("quantization_level"),
+        )
+        if item
+    )
+    return f"`{name}` ({metadata})" if metadata else f"`{name}`"
+
+
+def _how_to_use_steps() -> list:
+    """Step-by-step GUI instructions shown from the header help button."""
+    return [
+        (
+            "Add model access",
+            "For cloud models, paste an API key in the sidebar. For local "
+            "models, start Ollama and check **Local models (Ollama)** in the "
+            "sidebar.",
+        ),
+        (
+            "Choose your data",
+            "Upload a CSV/TSV file or select one already in the input folder. "
+            "The file needs an ID/barcode column and a locality/location text "
+            "column.",
+        ),
+        (
+            "Pick processing settings",
+            "Click **Continue**, choose real-time or batch processing, then "
+            "select a cloud/API model or **Local Ollama**.",
+        ),
+        (
+            "Review cost and outputs",
+            "Check the estimate, choose CSV/JSON/GeoJSON outputs, and adjust "
+            "the batch size for real-time runs if needed.",
+        ),
+        (
+            "Run and collect results",
+            "Click **Start processing**. Results are saved automatically in "
+            "the output folder and can also be downloaded from the results page.",
+        ),
+        (
+            "Use batch downloads later",
+            "For batch or staggered jobs, return to **Batch downloads** in the "
+            "sidebar to fetch completed provider results.",
+        ),
+    ]
+
+
+def _render_how_to_use_panel() -> None:
+    """Render the collapsible top-of-page user guide."""
+    st.subheader("How to use PlaceBot")
+    for index, (heading, detail) in enumerate(_how_to_use_steps(), start=1):
+        st.markdown(f"**{index}. {heading}**  \n{detail}")
+
+
 def _record_failed(record: dict) -> bool:
     """Infer whether a processed output row represents a failed AI call."""
     notes = str(record.get("Processing_Notes", "")).lower()
@@ -393,6 +465,35 @@ def _render_google_keys(config):
         st.rerun()
 
 
+def _render_local_model_setup():
+    """Show local/Ollama setup status in the sidebar from every page."""
+    installed = get_ollama_models(timeout=0.35)
+    badge = f"{len(installed)} installed" if installed else "Setup needed"
+    with st.sidebar.expander(
+        f"Local models (Ollama) — {badge}", expanded=not installed
+    ):
+        if installed:
+            st.caption(
+                "Ollama is running. These models can appear under "
+                "**Model source → Local Ollama** after you choose a dataset."
+            )
+            for model_info in installed[:8]:
+                st.markdown(f"- {_ollama_model_sidebar_label(model_info)}")
+            remaining = len(installed) - 8
+            if remaining > 0:
+                st.caption(f"...and {remaining} more.")
+        else:
+            st.warning("Ollama is not running, or no local models are installed.")
+            st.markdown("[Install Ollama](https://ollama.com/download)")
+            st.code("ollama pull qwen3:8b", language="bash")
+            st.caption(
+                "After installing Ollama and pulling a model, refresh this GUI "
+                "and choose **Local Ollama** in step 2."
+            )
+        if st.button("Refresh local models", key="refresh_local_models"):
+            st.rerun()
+
+
 def render_sidebar():
     config = get_config()
 
@@ -435,6 +536,8 @@ def render_sidebar():
             else:
                 _render_single_key(config, provider, label, saved)
 
+    st.sidebar.divider()
+    _render_local_model_setup()
     st.sidebar.divider()
     with st.sidebar:
         render_output_folder_link("Data folder")
@@ -585,19 +688,20 @@ def step_configure():
 
     st.subheader("Available models")
     st.caption(
-        "Tick **Use** to choose the model to run. Cloud models need an API "
-        "key; local models need Ollama running and the selected model "
-        "installed."
+        "Use the local picker for installed Ollama models, or the table for "
+        "cloud/API models. Cloud models need an API key; local models need "
+        "Ollama running and the selected model installed."
     )
 
     file_by_index = [cfg["_file"] for cfg in configs]
     ready_files = [c["_file"] for c in configs if _model_has_key(c)]
+    local_configs = [c for c in configs if is_local_model_config(c)]
+    cloud_configs = [c for c in configs if not is_local_model_config(c)]
     if not ready_files:
         st.warning(
             "No models are ready. Add an API key in the sidebar, or "
             "start Ollama and install a local model."
         )
-        local_configs = [c for c in configs if is_local_model_config(c)]
         if local_configs:
             with st.expander("Local model status"):
                 for cfg in local_configs:
@@ -613,58 +717,111 @@ def step_configure():
     if prev not in file_by_index:
         prev = ready_files[0]
 
-    rows = []
-    for cfg in configs:
-        comp = comp_by_name.get(cfg.get("name", ""), {})
-        rows.append(
-            {
-                "Use": cfg["_file"] == prev,
-                "Model": cfg.get("name", cfg.get("_file")),
-                "Vendor": comp.get("vendor", cfg.get("provider", "")),
-                "Model ID": cfg.get("model_id", ""),
-                "Est. cost": (
-                    "Free"
-                    if comp.get("is_local")
-                    else f"${comp.get('estimated_cost', 0):.4f}"
-                ),
-                "Est. time (min)": comp.get("estimated_time_minutes", "—"),
-                "Ready": _model_ready_label(cfg),
-            }
-        )
-
-    edited = st.data_editor(
-        pd.DataFrame(rows),
-        hide_index=True,
-        use_container_width=True,
-        disabled=[
-            "Model",
-            "Vendor",
-            "Model ID",
-            "Est. cost",
-            "Est. time (min)",
-            "Ready",
-        ],
-        column_config={
-            "Use": st.column_config.CheckboxColumn(
-                "Use",
-                help="Select this single model to run",
-                default=False,
-            ),
-        },
-        # Re-key on the current selection so the editor's accumulated edit
-        # state resets whenever the chosen model changes. Without this, old
-        # ticks linger and the single-select logic can flip back unexpectedly.
-        key=f"model_table_{prev}",
+    source = st.radio(
+        "Model source",
+        ["All models", "Local Ollama", "Cloud/API"],
+        horizontal=True,
+        key="model_source",
     )
 
-    # The checkbox column behaves like a radio: resolve a single selection,
-    # preferring any newly-ticked row over the previous choice.
-    checked = [i for i in edited.index if bool(edited.loc[i, "Use"])]
     selected_file = prev
-    if checked:
-        newly = [file_by_index[i] for i in checked if file_by_index[i] != prev]
-        selected_file = newly[0] if newly else file_by_index[checked[0]]
-    st.session_state.model_file = selected_file
+    if source == "Local Ollama":
+        if not local_configs:
+            st.warning(
+                "No local Ollama profiles were found. Start Ollama and install "
+                "a model such as `ollama pull qwen3:8b`, then refresh this page."
+            )
+            return
+
+        local_files = [cfg["_file"] for cfg in local_configs]
+        local_ready = [cfg for cfg in local_configs if _model_has_key(cfg)]
+        default_local_file = prev if prev in local_files else local_files[0]
+        default_local_idx = local_files.index(default_local_file)
+        selected_local_idx = st.selectbox(
+            "Local Ollama model",
+            range(len(local_configs)),
+            format_func=lambda i: _model_select_label(local_configs[i]),
+            index=default_local_idx,
+            key="local_model_picker",
+            help=(
+                "Shows installed Ollama models plus bundled local profiles. "
+                "Only installed models can run."
+            ),
+        )
+        selected_file = local_configs[selected_local_idx]["_file"]
+        st.session_state.model_file = selected_file
+
+        if local_ready:
+            st.caption(
+                f"{len(local_ready)} local model(s) ready. Local processing "
+                "does not send locality text to a cloud API."
+            )
+        with st.expander("Local model status", expanded=not local_ready):
+            for cfg in local_configs:
+                st.write(
+                    f"- **{cfg.get('name', cfg.get('_file'))}**: "
+                    f"{cfg.get('local_status', _model_ready_label(cfg))} "
+                    f"`{cfg.get('local_status_detail', '')}`"
+                )
+    else:
+        table_configs = cloud_configs if source == "Cloud/API" else configs
+        table_files = [cfg["_file"] for cfg in table_configs]
+        if prev not in table_files:
+            ready_table_files = [c["_file"] for c in table_configs if _model_has_key(c)]
+            selected_file = (
+                ready_table_files[0] if ready_table_files else table_files[0]
+            )
+
+        rows = []
+        for cfg in table_configs:
+            comp = comp_by_name.get(cfg.get("name", ""), {})
+            rows.append(
+                {
+                    "Use": cfg["_file"] == selected_file,
+                    "Model": cfg.get("name", cfg.get("_file")),
+                    "Vendor": comp.get("vendor", cfg.get("provider", "")),
+                    "Model ID": cfg.get("model_id", ""),
+                    "Est. cost": (
+                        "Free"
+                        if comp.get("is_local")
+                        else f"${comp.get('estimated_cost', 0):.4f}"
+                    ),
+                    "Est. time (min)": comp.get("estimated_time_minutes", "—"),
+                    "Ready": _model_ready_label(cfg),
+                }
+            )
+
+        edited = st.data_editor(
+            pd.DataFrame(rows),
+            hide_index=True,
+            use_container_width=True,
+            disabled=[
+                "Model",
+                "Vendor",
+                "Model ID",
+                "Est. cost",
+                "Est. time (min)",
+                "Ready",
+            ],
+            column_config={
+                "Use": st.column_config.CheckboxColumn(
+                    "Use",
+                    help="Select this single model to run",
+                    default=False,
+                ),
+            },
+            # Re-key on the current source/selection so the editor's accumulated
+            # edit state resets whenever the chosen model changes.
+            key=f"model_table_{source}_{selected_file}",
+        )
+
+        # The checkbox column behaves like a radio: resolve a single selection,
+        # preferring any newly-ticked row over the previous choice.
+        checked = [i for i in edited.index if bool(edited.loc[i, "Use"])]
+        if checked:
+            newly = [table_files[i] for i in checked if table_files[i] != selected_file]
+            selected_file = newly[0] if newly else table_files[checked[0]]
+        st.session_state.model_file = selected_file
 
     model_file = selected_file
     model_config = next(c for c in configs if c["_file"] == model_file)
@@ -1460,12 +1617,22 @@ def main():
     )
     setup_directories()
 
-    header_cols = st.columns([1, 6])
+    header_cols = st.columns([1, 5, 1])
     if logo:
         header_cols[0].image(logo, width=90)
     with header_cols[1]:
         st.title("PlaceBot")
         st.caption("Turn locality descriptions into geographic coordinates.")
+    with header_cols[2]:
+        st.write("")
+        if st.button("How to use", key="toggle_how_to_use"):
+            st.session_state.show_how_to_use = not st.session_state.get(
+                "show_how_to_use", False
+            )
+
+    if st.session_state.get("show_how_to_use", False):
+        _render_how_to_use_panel()
+        st.divider()
 
     page = render_sidebar()
 
