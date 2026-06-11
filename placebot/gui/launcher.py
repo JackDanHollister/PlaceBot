@@ -44,6 +44,19 @@ def _suppress_streamlit_first_run_prompt():
         pass
 
 
+def _streamlit_argv(app_path: str) -> list:
+    """Build the Streamlit command line for the local desktop GUI."""
+    return [
+        "streamlit",
+        "run",
+        app_path,
+        "--browser.gatherUsageStats",
+        "false",
+        "--server.address",
+        "127.0.0.1",
+    ]
+
+
 def main():
     """Launch the PlaceBot Streamlit app in the user's browser."""
     try:
@@ -64,13 +77,7 @@ def main():
     )
 
     app_path = str(Path(__file__).parent / "app.py")
-    sys.argv = [
-        "streamlit",
-        "run",
-        app_path,
-        "--browser.gatherUsageStats",
-        "false",
-    ]
+    sys.argv = _streamlit_argv(app_path)
     sys.exit(stcli.main())
 
 

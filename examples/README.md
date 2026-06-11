@@ -58,7 +58,7 @@ placebot
 
 # When prompted, select:
 # - Processing mode: real-time
-# - Model: Claude 3.5 Haiku (fast and reliable)
+# - Model: Claude Haiku 4.5 (fast and reliable)
 # - Input file: examples/sample_localities.tsv
 ```
 
@@ -132,7 +132,7 @@ Based on testing with these datasets:
 | odonata_100 | 100 | 7.3s | 100% |
 | BGE_1_test100 | 100 | 7.1s | 100% |
 
-*Benchmarks using Claude 3.5 Haiku model*
+*Benchmarks using Claude Haiku-class models*
 
 ## Need Help?
 

@@ -66,15 +66,17 @@ You'll need at least ONE API key from these providers:
 | **Anthropic** | [console.anthropic.com](https://console.anthropic.com/) | $5 credit | Reliability |
 | **OpenAI** | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | $5 credit | Balance |
 | **Google** | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | Free tier | Cost & Speed |
+| **OpenRouter** | [openrouter.ai/keys](https://openrouter.ai/keys) | Varies | One key for multiple vendors |
 
 **Recommendation**: Start with Google Gemini (free tier) for testing.
 
 ### 4. Configure API Keys
 
 **Easiest:** launch the graphical interface (`placebot-gui`) and paste your
-key(s) into the sidebar — they are saved to `~/.placebot/.env` automatically
-and remembered between sessions. See [Graphical Interface](#graphical-interface-easiest)
-below.
+key(s) into the sidebar. They are used for the current GUI session by default.
+Tick **Remember on this computer** only if you want PlaceBot to save them to
+`~/.placebot/.env` for future sessions. See
+[Graphical Interface](#graphical-interface-easiest) below.
 
 **Manual:** create `~/.placebot/.env` with your key(s):
 
@@ -89,6 +91,7 @@ Example `~/.placebot/.env` file:
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 OPENAI_API_KEY=sk-proj-your-key-here
 GOOGLE_API_KEY=your-google-key-here
+OPENROUTER_API_KEY=sk-or-your-key-here
 ```
 
 ### 5. Verify Installation
@@ -132,7 +135,8 @@ placebot-gui
 
 This opens PlaceBot in your web browser. From there you can:
 
-1. **Paste your API key** in the sidebar (saved to `~/.placebot/.env`).
+1. **Paste your API key** in the sidebar. It is session-only unless you tick
+   **Remember on this computer**.
 2. **Upload** a CSV/TSV file of localities (or pick one already in your input folder).
 3. **Choose** a processing mode and AI model — costs are shown up front.
 4. **Run** and watch the progress bar.
@@ -170,7 +174,7 @@ python -m placebot.cli.main
 
 ### "No API key found"
 
-1. Verify `.env` file exists in project root
+1. Verify `~/.placebot/.env` exists, or paste the key into the GUI sidebar
 2. Check API key format (should start with correct prefix)
 3. Restart your terminal after editing `.env`
 

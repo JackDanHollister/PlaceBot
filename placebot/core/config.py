@@ -14,16 +14,16 @@ from dotenv import load_dotenv
 
 def get_user_env_path() -> Path:
     """Return the path to the user-level .env file (``~/.placebot/.env``)."""
-    return Path.home() / '.placebot' / '.env'
+    return Path.home() / ".placebot" / ".env"
 
 
 class Config:
     """Manages configuration and API keys for the locality processor."""
-    
+
     def __init__(self, config_dir: Optional[str] = None):
         """
         Initialize configuration.
-        
+
         Args:
             config_dir: Optional custom config directory path
         """
@@ -31,11 +31,11 @@ class Config:
             self.config_dir = Path(config_dir)
         else:
             # Use project root config directory
-            self.config_dir = Path(__file__).parent.parent.parent / 'config'
-        
+            self.config_dir = Path(__file__).parent.parent.parent / "config"
+
         self.config_dir.mkdir(exist_ok=True)
         self._load_env_file()
-    
+
     def _load_env_file(self):
         """
         Load environment variables from .env files.
@@ -50,12 +50,12 @@ class Config:
         ``.env`` left behind in a checkout.
         """
         # 1. Project config directory
-        env_file = self.config_dir / '.env'
+        env_file = self.config_dir / ".env"
         if env_file.exists():
             load_dotenv(env_file)
 
         # 2. Project root (editable/source checkout)
-        root_env = Path(__file__).parent.parent.parent / '.env'
+        root_env = Path(__file__).parent.parent.parent / ".env"
         if root_env.exists():
             load_dotenv(root_env)
 
@@ -63,7 +63,7 @@ class Config:
         home_env = get_user_env_path()
         if home_env.exists():
             load_dotenv(home_env, override=True)
-    
+
     # Maximum number of Gemini/Google keys supported (primary + extras).
     # Mirrors the GOOGLE_API_KEY, GOOGLE_API_KEY_2 ... convention documented
     # for large-batch processing.
@@ -80,10 +80,11 @@ class Config:
             API key string or None if not found
         """
         key_map = {
-            'anthropic': 'ANTHROPIC_API_KEY',
-            'openai': 'OPENAI_API_KEY',
-            'google': 'GOOGLE_API_KEY',
-            'gemini': 'GOOGLE_API_KEY',
+            "anthropic": "ANTHROPIC_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "google": "GOOGLE_API_KEY",
+            "gemini": "GOOGLE_API_KEY",
+            "openrouter": "OPENROUTER_API_KEY",
         }
 
         env_var = key_map.get(provider.lower())
@@ -101,38 +102,39 @@ class Config:
         ``GOOGLE_API_KEY_2`` ... ``GOOGLE_API_KEY_N``.
         """
         keys = []
-        primary = os.getenv('GOOGLE_API_KEY')
+        primary = os.getenv("GOOGLE_API_KEY")
         if primary:
             keys.append(primary)
         for i in range(2, self.MAX_GOOGLE_KEYS + 1):
-            value = os.getenv(f'GOOGLE_API_KEY_{i}')
+            value = os.getenv(f"GOOGLE_API_KEY_{i}")
             if value:
                 keys.append(value)
         return keys
-    
+
     def get_all_api_keys(self) -> Dict[str, Optional[str]]:
         """
         Get all API keys.
-        
+
         Returns:
             Dictionary of provider names to API keys
         """
         return {
-            'anthropic': self.get_api_key('anthropic'),
-            'openai': self.get_api_key('openai'),
-            'google': self.get_api_key('google'),
+            "anthropic": self.get_api_key("anthropic"),
+            "openai": self.get_api_key("openai"),
+            "google": self.get_api_key("google"),
+            "openrouter": self.get_api_key("openrouter"),
         }
-    
+
     def check_api_keys(self) -> Dict[str, bool]:
         """
         Check which API keys are configured.
-        
+
         Returns:
             Dictionary of provider names to availability status
         """
         keys = self.get_all_api_keys()
         return {provider: bool(key) for provider, key in keys.items()}
-    
+
     def save_api_key(self, provider: str, api_key: str) -> Path:
         """
         Persist an API key to ``~/.placebot/.env`` and load it into the
@@ -149,10 +151,11 @@ class Config:
             Path to the .env file that was written
         """
         key_map = {
-            'anthropic': 'ANTHROPIC_API_KEY',
-            'openai': 'OPENAI_API_KEY',
-            'google': 'GOOGLE_API_KEY',
-            'gemini': 'GOOGLE_API_KEY',
+            "anthropic": "ANTHROPIC_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "google": "GOOGLE_API_KEY",
+            "gemini": "GOOGLE_API_KEY",
+            "openrouter": "OPENROUTER_API_KEY",
         }
         env_var = key_map.get(provider.lower())
         if not env_var:
@@ -180,9 +183,9 @@ class Config:
 
         updates: Dict[str, str] = {}
         for slot in range(1, self.MAX_GOOGLE_KEYS + 1):
-            env_var = 'GOOGLE_API_KEY' if slot == 1 else f'GOOGLE_API_KEY_{slot}'
+            env_var = "GOOGLE_API_KEY" if slot == 1 else f"GOOGLE_API_KEY_{slot}"
             # Empty string removes the slot from the .env file.
-            updates[env_var] = cleaned[slot - 1] if slot - 1 < len(cleaned) else ''
+            updates[env_var] = cleaned[slot - 1] if slot - 1 < len(cleaned) else ""
 
         return self._set_env_vars(updates)
 
@@ -206,12 +209,14 @@ class Config:
         remaining = dict(updates)
         lines = []
         if env_path.exists():
-            with open(env_path, 'r', encoding='utf-8') as f:
+            with open(env_path, "r", encoding="utf-8") as f:
                 for line in f:
                     stripped = line.strip()
                     matched = None
                     for env_var in remaining:
-                        if stripped.startswith(f"{env_var}=") or stripped.startswith(f"{env_var} ="):
+                        if stripped.startswith(f"{env_var}=") or stripped.startswith(
+                            f"{env_var} ="
+                        ):
                             matched = env_var
                             break
                     if matched is not None:
@@ -225,12 +230,16 @@ class Config:
         # Append any keys that weren't already present in the file
         for env_var, value in remaining.items():
             if value:
-                if lines and not lines[-1].endswith('\n'):
-                    lines.append('\n')
+                if lines and not lines[-1].endswith("\n"):
+                    lines.append("\n")
                 lines.append(f"{env_var}={value}\n")
 
-        with open(env_path, 'w', encoding='utf-8') as f:
+        with open(env_path, "w", encoding="utf-8") as f:
             f.writelines(lines)
+        try:
+            os.chmod(env_path, 0o600)
+        except OSError:
+            pass
 
         # Make the new values visible to the running process immediately
         for env_var, value in updates.items():
@@ -244,8 +253,8 @@ class Config:
 
     def create_env_template(self):
         """Create a .env template file with placeholder API keys."""
-        template_path = self.config_dir / '.env.template'
-        
+        template_path = self.config_dir / ".env.template"
+
         template_content = """# Locality Processor API Keys
 # ============================
 # Copy this file to .env and add your actual API keys
@@ -260,17 +269,21 @@ OPENAI_API_KEY=sk-your-key-here
 # Google (Gemini models)
 GOOGLE_API_KEY=your-key-here
 
+# OpenRouter (many vendors through one key)
+OPENROUTER_API_KEY=sk-or-your-key-here
+
 # Note: Local Ollama models don't require API keys
 """
-        
-        with open(template_path, 'w') as f:
+
+        with open(template_path, "w") as f:
             f.write(template_content)
-        
+
         return template_path
 
 
 # Singleton instance
 _config_instance = None
+
 
 def get_config() -> Config:
     """Get the global configuration instance."""

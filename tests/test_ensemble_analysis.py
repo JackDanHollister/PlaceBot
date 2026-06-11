@@ -3,8 +3,6 @@
 import csv
 import json
 
-import pytest
-
 from placebot.core import ensemble_analysis as ea
 from placebot.core.output_formatter import OutputFormatter
 
@@ -40,22 +38,54 @@ def test_run_ensemble_categories_and_carry_forward(tmp_path):
     _write_csv(
         primary,
         [
-            {"Barcode": "1", "Locality verbatim": "A", "Latitude": "51.45", "Longitude": "-2.59"},
-            {"Barcode": "2", "Locality verbatim": "B", "Latitude": "51.50", "Longitude": "-0.12"},
-            {"Barcode": "3", "Locality verbatim": "C", "Latitude": "40.0", "Longitude": "-3.0"},
+            {
+                "Barcode": "1",
+                "Locality verbatim": "A",
+                "Latitude": "51.45",
+                "Longitude": "-2.59",
+            },
+            {
+                "Barcode": "2",
+                "Locality verbatim": "B",
+                "Latitude": "51.50",
+                "Longitude": "-0.12",
+            },
+            {
+                "Barcode": "3",
+                "Locality verbatim": "C",
+                "Latitude": "40.0",
+                "Longitude": "-3.0",
+            },
             {"Barcode": "4", "Locality verbatim": "D", "Latitude": "", "Longitude": ""},
-            {"Barcode": "5", "Locality verbatim": "E", "Latitude": "10.0", "Longitude": "10.0"},
+            {
+                "Barcode": "5",
+                "Locality verbatim": "E",
+                "Latitude": "10.0",
+                "Longitude": "10.0",
+            },
         ],
     )
     secondary.write_text(
         json.dumps(
             [
-                {"Barcode": "1", "Latitude": 51.46, "Longitude": -2.59},   # close
+                {"Barcode": "1", "Latitude": 51.46, "Longitude": -2.59},  # close
                 {"Barcode": "2", "Latitude": 51.527, "Longitude": -0.12},  # moderate
-                {"Barcode": "2", "Latitude": 99.9, "Longitude": 99.9},     # duplicate -> ignored
-                {"Barcode": "3", "Latitude": 51.0, "Longitude": -1.0},     # none
-                {"Barcode": "4", "Latitude": 51.0, "Longitude": -1.0},     # primary missing
-                {"Barcode": "6", "Latitude": 1.0, "Longitude": 1.0},       # only in secondary
+                {
+                    "Barcode": "2",
+                    "Latitude": 99.9,
+                    "Longitude": 99.9,
+                },  # duplicate -> ignored
+                {"Barcode": "3", "Latitude": 51.0, "Longitude": -1.0},  # none
+                {
+                    "Barcode": "4",
+                    "Latitude": 51.0,
+                    "Longitude": -1.0,
+                },  # primary missing
+                {
+                    "Barcode": "6",
+                    "Latitude": 1.0,
+                    "Longitude": 1.0,
+                },  # only in secondary
             ]
         ),
         encoding="utf-8",
@@ -64,7 +94,7 @@ def test_run_ensemble_categories_and_carry_forward(tmp_path):
     result = ea.run_ensemble(str(primary), str(secondary))
 
     assert result["total"] == 5
-    assert result["only_in_primary"] == 1   # barcode 5
+    assert result["only_in_primary"] == 1  # barcode 5
     assert result["only_in_secondary"] == 1  # barcode 6
     assert result["duplicate_barcodes"] == 1
 

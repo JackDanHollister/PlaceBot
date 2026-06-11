@@ -10,7 +10,8 @@ This tool is intended to support digitisation, curation, and research workflows 
 
 ## Key Features
 
-- **12 AI Models**: Claude (3 models), OpenAI (3 models), Gemini (3 models), Qwen Local (3 models)
+- **Multi-vendor AI models**: native Claude, OpenAI, Gemini, local Ollama/Qwen,
+  and OpenRouter routes from one key
 - **Cost Optimisation**: Up to 90% savings with advanced caching strategies
 - **Batch Processing**: 50% cost reduction using asynchronous batch APIs
 - **High Accuracy**: 97-100% success rate on coordinate extraction
@@ -56,8 +57,9 @@ placebot-gui
 
 This opens PlaceBot in your browser. From the graphical interface you can:
 
-- Paste your API keys in the sidebar (saved to `~/.placebot/.env`), including
-  multiple Gemini keys for very large jobs.
+- Paste your API keys in the sidebar, including multiple Gemini keys for very
+  large jobs. Keys are session-only by default; tick **Remember on this
+  computer** if you want PlaceBot to save them locally in `~/.placebot/.env`.
 - Upload a CSV/TSV file and preview it.
 - Pick a model directly from the comparison table.
 - Run in real-time, submit a batch job, or use staggered batch for very
@@ -93,15 +95,19 @@ Add at least one API key to `~/.placebot/.env`:
 ANTHROPIC_API_KEY=your_anthropic_key_here
 OPENAI_API_KEY=your_openai_key_here
 GOOGLE_API_KEY=your_google_key_here
+OPENROUTER_API_KEY=your_openrouter_key_here
 ```
 
 Get your API keys from:
 - **Anthropic**: https://console.anthropic.com/
 - **OpenAI**: https://platform.openai.com/api-keys
 - **Google**: https://aistudio.google.com/app/apikey
+- **OpenRouter**: https://openrouter.ai/keys
 
-(The graphical interface writes this file for you.) Run `placebot --show-dirs`
-to see where PlaceBot stores input, output, and configuration.
+The graphical interface can use pasted keys without saving them. If you tick
+**Remember on this computer**, it writes the key to `~/.placebot/.env`. Run
+`placebot --show-dirs` to see where PlaceBot stores input, output, and
+configuration.
 
 ## Input Data Format
 
@@ -115,9 +121,11 @@ locality_id	locality_description
 
 ## Model Comparison
 
-PlaceBot ships 12 model profiles across 4 vendors. Speed/accuracy figures are
-indicative (measured on earlier model versions); cost is the per-token list
-price tier. Verify current pricing with each provider.
+PlaceBot ships native model profiles for Claude, OpenAI, Gemini, and local
+Ollama/Qwen models, plus OpenRouter profiles that can route to several vendors
+through one key. Speed/accuracy figures are indicative (measured on earlier
+model versions); cost is the per-token list price tier. Verify current pricing
+with each provider.
 
 | Vendor | Model | Cost | Best For |
 |--------|-------|------|----------|
@@ -133,6 +141,7 @@ price tier. Verify current pricing with each provider.
 | **Qwen** | 3 1.7B (local) | **FREE** | Privacy/offline |
 | **Qwen** | 3 14B (local) | **FREE** | Best local |
 | **Qwen** | 3 8B (local) | **FREE** | Offline balance |
+| **OpenRouter** | GPT-5 mini, GPT-4.1, Gemini 3.5 Flash, Claude Haiku/Sonnet/Opus | Varies | One-key multi-vendor routing |
 
 ## Advanced Features
 
@@ -298,9 +307,9 @@ pytest --cov=placebot tests/
 Based on testing with 100+ records:
 
 ### Speed Comparison
-- **Fastest**: Gemini 2.5 Flash-Lite (0.98s average)
-- **Cloud Average**: 3-14 seconds per record
-- **Local Average**: 10-17 seconds per record
+- **Fastest cloud tier**: Gemini Flash-class models
+- **Cloud Average**: typically a few seconds per record, depending on provider
+- **Local Average**: hardware-dependent; larger Ollama models are slower but private
 
 ### Accuracy
 - **Cloud Models**: 100% success rate
@@ -361,8 +370,8 @@ If you use PlaceBot in your research, please cite:
 ```bibtex
 @software{placebot2025,
   title = {PlaceBot: Multi-Vendor AI Locality Processor},
-  author = {Jack Hollister and Ben Price and {Anthropic Claude}},
-  year = {2025},
+  author = {Jack Hollister and Ben Price},
+  year = {2026},
   url = {https://github.com/JackDanHollister/PlaceBot}
 }
 ```
@@ -374,5 +383,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 Made for the biodiversity and research community.
-</content>
-</invoke>

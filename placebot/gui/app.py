@@ -21,13 +21,16 @@ Design notes
 import json
 import os
 import platform
+import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import streamlit as st
+from dotenv import dotenv_values
 
-from placebot.core.config import get_config
+from placebot.core.config import get_config, get_user_env_path
 from placebot.core.data_dirs import (
     setup_directories,
     get_input_dir,
@@ -36,7 +39,11 @@ from placebot.core.data_dirs import (
 )
 from placebot.core.file_manager import DatasetManager, OutputManager
 from placebot.core.dataset_preview import DatasetPreview
-from placebot.core.model_selector import discover_models, load_model_profile
+from placebot.core.model_selector import (
+    is_local_model_config,
+    load_all_model_profiles,
+    load_model_profile,
+)
 from placebot.core.model_comparison import ModelComparison
 from placebot.core.cost_estimator import CostEstimator
 from placebot.core.output_formatter import OutputFormatter
@@ -49,9 +56,16 @@ PROVIDERS = [
     ("anthropic", "Anthropic (Claude)"),
     ("openai", "OpenAI (GPT)"),
     ("google", "Google (Gemini)"),
+    ("openrouter", "OpenRouter"),
 ]
 
 LOGO_PATH = Path(__file__).parent / "placebot_logo.png"
+PROVIDER_ENV_VARS = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "google": "GOOGLE_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+}
 
 
 def get_logo_path():
@@ -92,18 +106,135 @@ def render_output_folder_link(label: str = "Output folder"):
             )
 
 
+def _safe_uploaded_filename(filename: str) -> str:
+    """Return a basename-only, conservative upload filename."""
+    base = os.path.basename(filename or "").strip()
+    base = re.sub(r"[^A-Za-z0-9._ -]+", "_", base)
+    base = base.lstrip(".")
+    return base or "uploaded_file"
+
+
+def _session_keys() -> dict:
+    """Session-only API keys currently active in this GUI process."""
+    return st.session_state.setdefault("session_api_keys", {})
+
+
+def _google_env_vars(max_keys: Optional[int] = None) -> tuple:
+    max_keys = max_keys or get_config().MAX_GOOGLE_KEYS
+    return tuple(
+        "GOOGLE_API_KEY" if slot == 1 else f"GOOGLE_API_KEY_{slot}"
+        for slot in range(1, max_keys + 1)
+    )
+
+
+def _saved_env_values() -> dict:
+    """Values explicitly remembered in the GUI's user-level .env file."""
+    env_path = get_user_env_path()
+    if not env_path.exists():
+        return {}
+    return {key: value for key, value in dotenv_values(env_path).items() if value}
+
+
+def _saved_env_value(env_var: str) -> Optional[str]:
+    value = _saved_env_values().get(env_var)
+    return str(value) if value else None
+
+
+def _set_session_api_key(provider: str, value: str) -> None:
+    """Make a pasted API key available for this GUI session only."""
+    env_var = PROVIDER_ENV_VARS[provider]
+    os.environ[env_var] = value
+    _session_keys()[env_var] = value
+
+
+def _clear_session_api_key(provider: str) -> None:
+    env_var = PROVIDER_ENV_VARS[provider]
+    _session_keys().pop(env_var, None)
+    saved = _saved_env_value(env_var)
+    if saved:
+        os.environ[env_var] = saved
+    else:
+        os.environ.pop(env_var, None)
+
+
+def _set_session_google_api_keys(values: list) -> None:
+    """Set one or more Google keys for this GUI session only."""
+    for env_var in _google_env_vars():
+        _session_keys().pop(env_var, None)
+        os.environ.pop(env_var, None)
+    for slot, value in enumerate(values, start=1):
+        env_var = "GOOGLE_API_KEY" if slot == 1 else f"GOOGLE_API_KEY_{slot}"
+        os.environ[env_var] = value
+        _session_keys()[env_var] = value
+
+
+def _clear_session_google_api_keys() -> None:
+    for env_var in _google_env_vars():
+        _session_keys().pop(env_var, None)
+        saved = _saved_env_value(env_var)
+        if saved:
+            os.environ[env_var] = saved
+        else:
+            os.environ.pop(env_var, None)
+
+
+def _provider_available(config, provider: str) -> bool:
+    if provider == "google":
+        return bool(config.get_google_api_keys())
+    return bool(config.get_api_key(provider))
+
+
+def _provider_saved_configured(provider: str) -> bool:
+    if provider == "google":
+        return any(env in _saved_env_values() for env in _google_env_vars())
+    return bool(_saved_env_value(PROVIDER_ENV_VARS[provider]))
+
+
+def _provider_session_configured(provider: str) -> bool:
+    if provider == "google":
+        return any(env in _session_keys() for env in _google_env_vars())
+    return PROVIDER_ENV_VARS[provider] in _session_keys()
+
+
 def _model_needs_key(model_config: dict) -> bool:
     """Local (Ollama/Qwen) models do not require an API key."""
-    name = (model_config.get("name", "") + model_config.get("provider", "")).lower()
-    return not ("qwen" in name or "ollama" in name or "local" in name)
+    return not is_local_model_config(model_config)
 
 
 def _model_has_key(model_config: dict) -> bool:
     """Whether the model is ready to run (local, or has a key configured)."""
-    if not _model_needs_key(model_config):
-        return True
+    if is_local_model_config(model_config):
+        return bool(model_config.get("local_ready"))
     key = model_config.get("api_key") or ""
     return len(key) > 10
+
+
+def _model_ready_label(model_config: dict) -> str:
+    """Short GUI status for model readiness."""
+    if _model_has_key(model_config):
+        return "Yes"
+    if is_local_model_config(model_config):
+        return model_config.get("local_status", "Local model unavailable")
+    return "Needs API key"
+
+
+def _record_failed(record: dict) -> bool:
+    """Infer whether a processed output row represents a failed AI call."""
+    notes = str(record.get("Processing_Notes", "")).lower()
+    source = str(record.get("Coordinate_Source", "")).lower()
+    return (
+        "processing failed" in notes
+        or "response parsing failed" in notes
+        or "| error:" in notes
+        or source == "failed"
+    )
+
+
+def _processing_counts(records: list) -> dict:
+    """Count successful and failed processed rows."""
+    failed = sum(1 for record in records if _record_failed(record))
+    total = len(records)
+    return {"total": total, "failed": failed, "successful": total - failed}
 
 
 # These delegate to OutputFormatter so the GUI's downloads/auto-saves are
@@ -151,13 +282,15 @@ def _render_download_buttons(records, formats, stem, key_prefix, heading="Downlo
 
 def _load_all_model_configs(model_names: tuple) -> list:
     """Load model profiles. Not cached: configs hold live function/module refs."""
-    configs = []
-    for name in model_names:
-        cfg = load_model_profile(name)
-        if cfg:
-            cfg["_file"] = name
-            configs.append(cfg)
-    return configs
+    if model_names:
+        configs = []
+        for name in model_names:
+            cfg = load_model_profile(name)
+            if cfg:
+                cfg["_file"] = name
+                configs.append(cfg)
+        return configs
+    return load_all_model_profiles(include_dynamic_ollama=True)
 
 
 # ---------------------------------------------------------------------------
@@ -165,8 +298,8 @@ def _load_all_model_configs(model_names: tuple) -> list:
 # ---------------------------------------------------------------------------
 
 
-def _render_single_key(config, provider, label, configured):
-    """Single API-key editor (Anthropic / OpenAI)."""
+def _render_single_key(config, provider, label, saved):
+    """Single API-key editor (Anthropic / OpenAI / OpenRouter)."""
     value = st.text_input(
         f"{label} key",
         type="password",
@@ -174,16 +307,30 @@ def _render_single_key(config, provider, label, configured):
         placeholder="Paste your API key here",
         label_visibility="collapsed",
     )
-    col1, col2 = st.columns(2)
-    if col1.button("Save", key=f"save_{provider}"):
+    remember = st.checkbox("Remember on this computer", key=f"remember_{provider}")
+    col1, col2, col3 = st.columns(3)
+    if col1.button("Use key", key=f"use_{provider}"):
         if value:
-            config.save_api_key(provider, value)
-            st.success("Saved!")
+            if remember:
+                config.save_api_key(provider, value)
+                _session_keys().pop(PROVIDER_ENV_VARS[provider], None)
+                st.success("Saved for future sessions.")
+            else:
+                _set_session_api_key(provider, value)
+                st.success("Using key for this session.")
             st.rerun()
         else:
             st.warning("Enter a key first.")
-    if configured and col2.button("Clear", key=f"clear_{provider}"):
+    if _provider_session_configured(provider) and col2.button(
+        "Forget session", key=f"clear_session_{provider}"
+    ):
+        _clear_session_api_key(provider)
+        st.rerun()
+    if saved and col3.button("Clear saved", key=f"clear_{provider}"):
         config.save_api_key(provider, "")
+        env_var = PROVIDER_ENV_VARS[provider]
+        if env_var in _session_keys():
+            os.environ[env_var] = _session_keys()[env_var]
         st.rerun()
 
 
@@ -194,18 +341,11 @@ def _render_google_keys(config):
     ``GOOGLE_API_KEY_2`` ... convention and let you spread very large batch
     jobs across separate quotas.
     """
-    existing = config.get_google_api_keys()
+    saved = _provider_saved_configured("google")
     max_keys = config.MAX_GOOGLE_KEYS
 
     new_values = []
-    prev_value = None  # value of the previously rendered slot
     for slot in range(max_keys):
-        current = existing[slot] if slot < len(existing) else ""
-        # Show the next optional slot only once the preceding one is filled,
-        # to keep the panel tidy for users who only need a single key. Stop as
-        # soon as we hit an empty trailing slot.
-        if slot > 0 and not current and not prev_value:
-            break
         if slot == 0:
             field_label = "Primary key (GOOGLE_API_KEY)"
         else:
@@ -214,25 +354,42 @@ def _render_google_keys(config):
             )
         value = st.text_input(
             field_label,
-            value=current,
             type="password",
             key=f"google_key_{slot}",
             placeholder="Paste your Gemini API key here",
         )
         new_values.append(value)
-        prev_value = value
 
     st.caption(
         "Add more than one key only if you process very large datasets and "
         "want to spread the load across separate Gemini quotas."
     )
-    col1, col2 = st.columns(2)
-    if col1.button("Save", key="save_google"):
-        config.save_google_api_keys(new_values)
-        st.success("Saved!")
+    remember = st.checkbox("Remember on this computer", key="remember_google")
+    col1, col2, col3 = st.columns(3)
+    if col1.button("Use key(s)", key="use_google"):
+        cleaned = [v.strip() for v in new_values if v and v.strip()]
+        if not cleaned:
+            st.warning("Enter at least one key first.")
+            return
+        if remember:
+            config.save_google_api_keys(cleaned)
+            for env_var in _google_env_vars():
+                _session_keys().pop(env_var, None)
+            st.success("Saved for future sessions.")
+        else:
+            _set_session_google_api_keys(cleaned)
+            st.success("Using key(s) for this session.")
         st.rerun()
-    if existing and col2.button("Clear all", key="clear_google"):
+    if _provider_session_configured("google") and col2.button(
+        "Forget session", key="clear_session_google"
+    ):
+        _clear_session_google_api_keys()
+        st.rerun()
+    if saved and col3.button("Clear saved", key="clear_google"):
         config.save_google_api_keys([])
+        for env_var in _google_env_vars():
+            if env_var in _session_keys():
+                os.environ[env_var] = _session_keys()[env_var]
         st.rerun()
 
 
@@ -254,19 +411,29 @@ def render_sidebar():
     st.sidebar.divider()
     st.sidebar.header("API Keys")
     st.sidebar.caption(
-        "Keys are saved to `~/.placebot/.env` on your computer and remembered "
-        "between sessions. Local (Qwen/Ollama) models need no key."
+        "Pasted keys are used for this session only unless you tick "
+        "**Remember on this computer**. Local (Qwen/Ollama) models need no key."
     )
 
-    status = config.check_api_keys()
     for provider, label in PROVIDERS:
-        configured = status.get(provider, False)
-        badge = "Configured" if configured else "Not set"
-        with st.sidebar.expander(f"{label} — {badge}", expanded=not configured):
+        saved = _provider_saved_configured(provider)
+        session = _provider_session_configured(provider)
+        available = _provider_available(config, provider)
+        if session:
+            badge = "Session"
+        elif saved:
+            badge = "Saved"
+        elif available:
+            badge = "Environment"
+        else:
+            badge = "Not set"
+        with st.sidebar.expander(
+            f"{label} — {badge}", expanded=not (saved or session or available)
+        ):
             if provider == "google":
                 _render_google_keys(config)
             else:
-                _render_single_key(config, provider, label, configured)
+                _render_single_key(config, provider, label, saved)
 
     st.sidebar.divider()
     with st.sidebar:
@@ -303,10 +470,11 @@ def step_dataset(dataset_manager: DatasetManager):
 
     uploaded = st.file_uploader("Upload a CSV or TSV file", type=["csv", "tsv", "txt"])
     if uploaded is not None:
-        dest = os.path.join(str(get_input_dir()), uploaded.name)
+        upload_name = _safe_uploaded_filename(uploaded.name)
+        dest = os.path.join(str(get_input_dir()), upload_name)
         with open(dest, "wb") as f:
             f.write(uploaded.getbuffer())
-        st.success(f"Uploaded **{uploaded.name}**")
+        st.success(f"Uploaded **{upload_name}**")
 
     datasets = dataset_manager.discover_datasets()
     # Skip the helper README.txt that PlaceBot drops in the input folder
@@ -323,7 +491,7 @@ def step_dataset(dataset_manager: DatasetManager):
     default_idx = 0
     if uploaded is not None:
         for i, d in enumerate(datasets):
-            if d["filename"] == uploaded.name:
+            if d["filename"] == upload_name:
                 default_idx = i
                 break
 
@@ -405,11 +573,10 @@ def step_configure():
         )
 
     # --- Model selection with comparison table ---
-    model_names = tuple(discover_models())
-    if not model_names:
+    configs = load_all_model_profiles(include_dynamic_ollama=True)
+    if not configs:
         st.error("No model profiles found.")
         return
-    configs = _load_all_model_configs(model_names)
 
     comparisons = ModelComparison.compare_models(configs, num_records, cost_mode)
     comp_by_name = {c["model_name"]: c for c in comparisons}
@@ -418,8 +585,9 @@ def step_configure():
 
     st.subheader("Available models")
     st.caption(
-        "Tick **Use** to choose the model to run. Models marked *Needs API "
-        "key* must be set up in the sidebar first."
+        "Tick **Use** to choose the model to run. Cloud models need an API "
+        "key; local models need Ollama running and the selected model "
+        "installed."
     )
 
     file_by_index = [cfg["_file"] for cfg in configs]
@@ -427,8 +595,17 @@ def step_configure():
     if not ready_files:
         st.warning(
             "No models are ready. Add an API key in the sidebar, or "
-            "install a local Qwen model."
+            "start Ollama and install a local model."
         )
+        local_configs = [c for c in configs if is_local_model_config(c)]
+        if local_configs:
+            with st.expander("Local model status"):
+                for cfg in local_configs:
+                    st.write(
+                        f"- **{cfg.get('name', cfg.get('_file'))}**: "
+                        f"{cfg.get('local_status', 'Unavailable')} "
+                        f"`{cfg.get('local_status_detail', '')}`"
+                    )
         return
 
     # Persist the chosen model across reruns; default to the first ready model.
@@ -439,19 +616,19 @@ def step_configure():
     rows = []
     for cfg in configs:
         comp = comp_by_name.get(cfg.get("name", ""), {})
-        ready = _model_has_key(cfg)
         rows.append(
             {
                 "Use": cfg["_file"] == prev,
                 "Model": cfg.get("name", cfg.get("_file")),
                 "Vendor": comp.get("vendor", cfg.get("provider", "")),
+                "Model ID": cfg.get("model_id", ""),
                 "Est. cost": (
                     "Free"
                     if comp.get("is_local")
                     else f"${comp.get('estimated_cost', 0):.4f}"
                 ),
                 "Est. time (min)": comp.get("estimated_time_minutes", "—"),
-                "Ready": "Yes" if ready else "Needs API key",
+                "Ready": _model_ready_label(cfg),
             }
         )
 
@@ -459,7 +636,14 @@ def step_configure():
         pd.DataFrame(rows),
         hide_index=True,
         use_container_width=True,
-        disabled=["Model", "Vendor", "Est. cost", "Est. time (min)", "Ready"],
+        disabled=[
+            "Model",
+            "Vendor",
+            "Model ID",
+            "Est. cost",
+            "Est. time (min)",
+            "Ready",
+        ],
         column_config={
             "Use": st.column_config.CheckboxColumn(
                 "Use",
@@ -486,10 +670,17 @@ def step_configure():
     model_config = next(c for c in configs if c["_file"] == model_file)
 
     if not _model_has_key(model_config):
-        st.warning(
-            f"**{model_config.get('name', model_file)}** needs an API key. "
-            "Add one in the sidebar, then it will be ready to run."
-        )
+        if is_local_model_config(model_config):
+            st.warning(
+                f"**{model_config.get('name', model_file)}** is not ready: "
+                f"{model_config.get('local_status', 'local model unavailable')}. "
+                f"{model_config.get('local_status_detail', '')}"
+            )
+        else:
+            st.warning(
+                f"**{model_config.get('name', model_file)}** needs an API key. "
+                "Add one in the sidebar, then it will be ready to run."
+            )
         return
 
     # --- Cost estimate ---
@@ -882,7 +1073,21 @@ def _show_results():
         return
 
     records = results.get("processed_records", [])
-    st.success(f"Done! Processed {len(records):,} records.")
+    counts = _processing_counts(records)
+    if counts["failed"] == counts["total"] and counts["total"]:
+        st.error(
+            f"Processing finished, but all {counts['total']:,} records failed. "
+            "Check `Processing_Notes` in the table/output files before using "
+            "these results."
+        )
+    elif counts["failed"]:
+        st.warning(
+            f"Processed {counts['total']:,} records with "
+            f"{counts['failed']:,} failure(s). Check `Processing_Notes` for "
+            "the affected rows."
+        )
+    else:
+        st.success(f"Done! Processed {len(records):,} records.")
 
     # Files were saved automatically to the output folder.
     saved_files = res.get("saved_files", {})
@@ -1120,10 +1325,11 @@ def step_ensemble_analysis():
             key="ensemble_upload",
         )
         if uploaded is not None:
-            dest = os.path.join(str(get_output_dir()), uploaded.name)
+            upload_name = _safe_uploaded_filename(uploaded.name)
+            dest = os.path.join(str(get_output_dir()), upload_name)
             with open(dest, "wb") as f:
                 f.write(uploaded.getbuffer())
-            st.success(f"Added **{uploaded.name}** to your output folder.")
+            st.success(f"Added **{upload_name}** to your output folder.")
 
     files = _list_output_files()
     if len(files) < 2:
@@ -1195,11 +1401,15 @@ def step_ensemble_analysis():
 
     notes = []
     if result["only_in_primary"]:
-        notes.append(f"{result['only_in_primary']:,} barcode(s) only in the primary file")
+        notes.append(
+            f"{result['only_in_primary']:,} barcode(s) only in the primary file"
+        )
     if result["only_in_secondary"]:
         notes.append(f"{result['only_in_secondary']:,} only in the secondary file")
     if result["duplicate_barcodes"]:
-        notes.append(f"{result['duplicate_barcodes']:,} duplicate barcode(s) in the secondary file (ignored)")
+        notes.append(
+            f"{result['duplicate_barcodes']:,} duplicate barcode(s) in the secondary file (ignored)"
+        )
     if notes:
         st.caption(" · ".join(notes))
 

@@ -3,6 +3,7 @@
 import json
 
 from placebot.gui import app
+from placebot.gui import launcher
 
 
 def test_csv_bytes_has_header_and_rows(sample_records):
@@ -45,14 +46,54 @@ def test_geojson_skips_records_without_coords(sample_records):
 
 
 def test_model_needs_key_logic():
-    assert app._model_needs_key({"name": "Claude 3.5 Haiku", "provider": "Anthropic"})
+    assert app._model_needs_key({"name": "Claude Haiku 4.5", "provider": "Anthropic"})
     assert not app._model_needs_key({"name": "Qwen 3 8B (local)", "provider": "Ollama"})
 
 
 def test_model_has_key_for_local_without_key():
     assert app._model_has_key(
-        {"name": "Qwen 3 8B (local)", "provider": "Ollama", "api_key": ""}
+        {
+            "name": "Qwen 3 8B (local)",
+            "provider": "Ollama",
+            "api_key": "",
+            "local_ready": True,
+        }
+    )
+    assert not app._model_has_key(
+        {
+            "name": "Qwen 3 8B (local)",
+            "provider": "Ollama",
+            "api_key": "",
+            "local_ready": False,
+        }
     )
     assert not app._model_has_key(
         {"name": "Claude", "provider": "Anthropic", "api_key": ""}
     )
+
+
+def test_processing_counts_detects_failed_rows():
+    records = [
+        {"Processing_Notes": "", "Coordinate_Source": "ai"},
+        {"Processing_Notes": "AI processing failed: API error: 404"},
+        {"Processing_Notes": "ok | Error: model missing"},
+        {"Coordinate_Source": "failed"},
+    ]
+    assert app._processing_counts(records) == {
+        "total": 4,
+        "failed": 3,
+        "successful": 1,
+    }
+
+
+def test_safe_uploaded_filename_strips_paths_and_unsafe_chars():
+    assert app._safe_uploaded_filename("../../secret.csv") == "secret.csv"
+    assert app._safe_uploaded_filename("..hidden.tsv") == "hidden.tsv"
+    assert app._safe_uploaded_filename("my/data:export?.csv") == "data_export_.csv"
+    assert app._safe_uploaded_filename("") == "uploaded_file"
+
+
+def test_gui_launcher_binds_to_loopback_only():
+    argv = launcher._streamlit_argv("/tmp/app.py")
+    assert argv[0:3] == ["streamlit", "run", "/tmp/app.py"]
+    assert argv[argv.index("--server.address") + 1] == "127.0.0.1"

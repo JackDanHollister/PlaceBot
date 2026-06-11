@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **OpenRouter provider support.** The GUI and config now support an
+  `OPENROUTER_API_KEY`, and PlaceBot ships OpenRouter profiles for GPT-5 mini,
+  GPT-4.1, Gemini 3.5 Flash, Claude Haiku 4.5, Claude Sonnet 4.6, and Claude
+  Opus 4.8. These use OpenRouter's OpenAI-compatible chat-completions endpoint
+  so one key can route across multiple vendors in real-time mode.
 - **Ensemble analysis.** Compare two model output files (CSV/TSV/JSON) for the
   same dataset to flag records for manual verification. Records are matched on
   `Barcode`, the haversine distance between the two coordinate estimates is
@@ -20,6 +25,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TSV output format.** `OutputFormatter` can now write tab-separated values
   (UTF-8 with BOM, same canonical column order as CSV); selectable as a `tsv`
   output format and downloadable in the GUI.
+- **Dynamic local Ollama model discovery in the GUI.** Installed Ollama models
+  are now added to the model picker automatically, so users can run whichever
+  local models they already have rather than only the bundled Qwen profile
+  names.
+
+### Fixed
+- **GUI API-key handling is session-only by default.** Pasted Anthropic,
+  OpenAI, Google/Gemini, and OpenRouter keys are now kept only in the running
+  GUI session unless the user explicitly ticks **Remember on this computer**.
+  Saved keys remain supported in `~/.placebot/.env`, written with owner-only
+  permissions where supported, but the GUI no longer pre-fills saved Google
+  keys into password fields and clearly labels session, saved, and externally
+  supplied environment keys.
+- **GUI upload filename hardening.** Dataset and ensemble uploads now write
+  using basename-only, conservative filenames, preventing uploaded filenames
+  from escaping the intended input/output folders.
+- **GUI local server exposure.** The packaged `placebot-gui` launcher now binds
+  Streamlit to `127.0.0.1` instead of relying on Streamlit defaults, keeping
+  the desktop GUI local to the user's machine.
+- **Local model readiness checks.** Local models are no longer treated as ready
+  just because they do not require an API key. The GUI now checks whether
+  Ollama is reachable and whether the selected model is installed, and shows the
+  relevant `ollama pull ...` command when a bundled local profile is missing.
+- **All-record failure visibility.** Real-time GUI runs now warn/error when
+  processed output rows contain model/API failures, instead of always reporting
+  a successful run because output files were written.
+- **CI lint.** Removed an unused `pytest` import from the ensemble tests.
 
 ## [1.2.5] - 2026-06-06
 
