@@ -14,7 +14,8 @@ This tool is intended to support digitisation, curation, and research workflows 
   and OpenRouter routes from one key
 - **Cost Optimisation**: Up to 90% savings with advanced caching strategies
 - **Batch Processing**: 50% cost reduction using asynchronous batch APIs
-- **High Accuracy**: 97-100% success rate on coordinate extraction
+- **Benchmark Tracking**: Historical test runs record model success rates and
+  processing costs for comparison
 - **Privacy Options**: Local models via Ollama for offline processing
 - **Performance Tracking**: Built-in benchmarking and comparison tools
 - **Production Ready**: Tested on 100+ records, scales to thousands
@@ -23,31 +24,35 @@ This tool is intended to support digitisation, curation, and research workflows 
 
 ### Installation
 
-**Just want to click an icon?** Download a one-click installer (no Python needed)
-from the [**Releases page**](https://github.com/JackDanHollister/PlaceBot/releases):
-`PlaceBot-Setup-<version>.exe` (Windows) or `PlaceBot-<version>.dmg` (macOS). It
-adds a desktop shortcut that opens the graphical interface. See
-[INSTALL.md](INSTALL.md) for first-launch notes on unsigned builds.
-
-**Prefer the command line / have Python?**
-
-```bash
-# From PyPI (isolated install, ideal for an end-user CLI/GUI)
-pipx install "placebot[gui]"   # or:  pip install "placebot[gui]"
-
-# Or, for local Ollama model support
-pipx install "placebot[local]"
-```
-
-<details>
-<summary>Install from source (for development)</summary>
+**Current public install route:** install from this GitHub repository with
+Python 3.8+:
 
 ```bash
 git clone https://github.com/JackDanHollister/PlaceBot.git
 cd PlaceBot
+
+# Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate        # macOS/Linux
+# .venv\Scripts\activate         # Windows PowerShell
+
+# GUI install
 pip install -e ".[gui]"
+
+# Or include local Ollama support too
+pip install -e ".[gui,local]"
 ```
-</details>
+
+Then run:
+
+```bash
+placebot-gui
+```
+
+Pre-built Windows/macOS installers and a PyPI package are supported by the
+release tooling, but they are not currently attached/published on the public
+release page. Until a release with assets is cut, use the GitHub/source install
+above.
 
 ### Graphical interface (easiest)
 
@@ -62,7 +67,8 @@ This opens PlaceBot in your browser. From the graphical interface you can:
   large jobs. Keys are session-only by default; tick **Remember on this
   computer** if you want PlaceBot to save them locally in `~/.placebot/.env`.
 - Upload a CSV/TSV file and preview it.
-- Pick a model directly from the comparison table.
+- Pick a model from the comparison table or choose a local Ollama model from
+  the local picker.
 - Run in real-time, submit a batch job, or use staggered batch for very
   large, quota-safe jobs.
 - Download completed batch results (including merged staggered jobs) without
@@ -70,7 +76,8 @@ This opens PlaceBot in your browser. From the graphical interface you can:
 - Results are saved straight to your output folder (CSV uses a UTF-8 BOM so
   Excel shows accents correctly), with one-click access to that folder.
 
-No terminal knowledge is required.
+After the one-time install, the graphical workflow does not require terminal
+use.
 
 ### Command-line usage
 
@@ -316,7 +323,8 @@ pytest --cov=placebot tests/
 
 ## Performance Metrics
 
-Based on testing with 100+ records:
+Based on historical testing with 100+ records. These figures are benchmark
+context, not a guarantee for every dataset, model version, or provider account.
 
 ### Speed Comparison
 - **Fastest cloud tier**: Gemini Flash-class models
@@ -324,8 +332,9 @@ Based on testing with 100+ records:
 - **Local Average**: hardware-dependent; larger Ollama models are slower but private
 
 ### Accuracy
-- **Cloud Models**: 100% success rate
-- **Local Models**: 97-100% success rate
+- **Cloud Models**: high success rates in the historical benchmark runs
+- **Local Models**: strong local benchmark results, with performance depending
+  on the installed model and local hardware
 
 ### Cost Efficiency
 - **Without Caching**: $0.50-2.00 per 1000 records

@@ -2,7 +2,7 @@ name: Build standalone installers
 
 # Builds double-clickable Windows (.exe) and macOS (.dmg) installers that bundle
 # their own Python runtime and pip-install the placebot wheel into it, then
-# attaches them to the GitHub Release for the tag.
+# attaches them to the GitHub Release for stable version tags.
 #
 # Kept separate from release.yml (PyPI) so an installer failure never blocks the
 # PyPI publish, and vice versa. Use the manual "Run workflow" button to dry-run

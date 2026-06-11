@@ -15,47 +15,36 @@ python --version  # Should be 3.8+
 
 ### 2. Install PlaceBot
 
-**Option A — One-click installer (no Python required, easiest for most staff)**
+**Option A — Install from GitHub/source (current public route)**
 
-If you just want to click an icon and go, download a pre-built installer from the
-[**Releases page**](https://github.com/JackDanHollister/PlaceBot/releases):
-
-| Platform | Download | How to install |
-|----------|----------|----------------|
-| **Windows** | `PlaceBot-Setup-<version>.exe` | Double-click, follow the prompts. A **PlaceBot** icon is added to your Desktop and Start Menu. |
-| **macOS** | `PlaceBot-<version>.dmg` | One download for **all** Macs (Intel and Apple Silicon). Double-click, drag **PlaceBot** into Applications. Launch from Launchpad/Spotlight. |
-
-These bundle their own Python, so you do **not** need Python installed. Then open
-PlaceBot from its desktop icon and skip straight to step 3 (API keys).
-
-> First launch on an **unsigned** build: Windows may show a SmartScreen warning
-> (click *More info → Run anyway*); on macOS, **right-click the app → Open** the
-> first time (or run `xattr -dr com.apple.quarantine /Applications/PlaceBot.app`).
-> Code signing is on the roadmap to remove these prompts.
->
-> On **Apple Silicon** Macs, the first launch may prompt a one-time install of
-> **Rosetta** (click *Install*) — PlaceBot ships as a single Intel build that
-> runs on every Mac. This takes a minute once; there's no noticeable slowdown.
-
-**Option B — Install from PyPI (recommended for technical users)**
-```bash
-# pipx keeps PlaceBot isolated from your other Python tools
-pipx install placebot          # or:  pip install placebot
-
-# With the graphical interface:
-pipx install "placebot[gui]"   # or:  pip install "placebot[gui]"
-```
-
-**Option C — Install from source (for development)**
 ```bash
 # Clone the repository
 git clone https://github.com/JackDanHollister/PlaceBot.git
 cd PlaceBot
 
-# Install the package (add extras as needed)
-pip install -e ".[gui]"        # graphical interface
-pip install -e ".[local]"      # local Ollama model support
+# Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate        # macOS/Linux
+# .venv\Scripts\activate         # Windows PowerShell
+
+# Install the graphical interface
+pip install -e ".[gui]"
+
+# Or include local Ollama model support too
+pip install -e ".[gui,local]"
 ```
+
+**Option B — One-click installers and PyPI**
+
+The repository includes release tooling for Windows/macOS installers and PyPI
+publishing, but the current public GitHub releases do not have installer assets
+attached and the `placebot` package is not currently published on PyPI. Use
+Option A until a full release with public assets/package publishing is cut.
+
+When installer assets are published, they are expected to be named
+`PlaceBot-Setup-<version>.exe` for Windows and `PlaceBot-<version>.dmg` for
+macOS. Windows installers add Desktop/Start Menu shortcuts; macOS installers
+provide a `PlaceBot.app` bundle to drag into Applications.
 
 ### 3. Get API Keys
 
@@ -117,16 +106,15 @@ placebot
 # 5. Confirm processing
 ```
 
-Expected output:
+Successful runs write output files and report the processed record count:
 ```
-✓ Processed 10 records
-✓ 100% success rate
-✓ Results saved to output/
+Processed 10 records
+Results saved to output/
 ```
 
 ## Graphical Interface (easiest)
 
-If you installed the `gui` extra (`pip install "placebot[gui]"`), you can use
+If you installed the `gui` extra (`pip install -e ".[gui]"`), you can use
 the point-and-click interface instead of the command line:
 
 ```bash
@@ -138,7 +126,8 @@ This opens PlaceBot in your web browser. From there you can:
 1. **Paste your API key** in the sidebar. It is session-only unless you tick
    **Remember on this computer**.
 2. **Upload** a CSV/TSV file of localities (or pick one already in your input folder).
-3. **Choose** a processing mode and AI model — costs are shown up front.
+3. **Choose** a processing mode and AI model — costs are shown up front. For
+   local models, check **Local models (Ollama)** in the sidebar.
 4. **Run** and watch the progress bar.
 5. **Download** your results as CSV, JSON, or GeoJSON.
 
@@ -164,7 +153,7 @@ environment variable to use a different location.
 Try reinstalling:
 ```bash
 pip uninstall placebot
-pip install -e .
+pip install -e ".[gui]"
 ```
 
 Or use Python module syntax:
@@ -204,14 +193,14 @@ source venv/bin/activate  # On macOS/Linux
 venv\Scripts\activate     # On Windows
 
 # Install PlaceBot
-pip install -e .
+pip install -e ".[gui]"
 ```
 
 ### Development Installation
 
 ```bash
 # Install with all development dependencies
-pip install -e ".[dev,local]"
+pip install -e ".[dev,gui,local]"
 
 # Run tests
 pytest tests/
@@ -243,7 +232,7 @@ ollama pull qwen3:14b
 ```
 3. Install PlaceBot with local support:
 ```bash
-pip install -e ".[local]"
+pip install -e ".[gui,local]"
 ```
 
 ## Platform-Specific Notes

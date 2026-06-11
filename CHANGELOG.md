@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   processing settings, running jobs, and collecting results.
 
 ### Fixed
+- **Public install documentation.** README and INSTALL now describe the current
+  GitHub/source install route, and label PyPI plus one-click installer downloads
+  as release-pipeline work rather than currently available public downloads.
 - **GUI API-key handling is session-only by default.** Pasted Anthropic,
   OpenAI, Google/Gemini, and OpenRouter keys are now kept only in the running
   GUI session unless the user explicitly ticks **Remember on this computer**.

@@ -6,8 +6,10 @@ extra) into it — PlaceBot runs as a normal installed package, so there is no
 PyInstaller freeze step and no `sys._MEIPASS`/asset-collection fragility.
 
 The GitHub Actions workflow [`.github/workflows/installers.yml`](../.github/workflows/installers.yml)
-builds these on every `v*` tag and attaches them to the GitHub Release. You can
-also trigger it manually ("Run workflow") to dry-run on a branch.
+builds these on `v*` tags and uploads them as workflow artifacts. For stable
+version tags without a pre-release suffix (for example `v1.2.5`, not
+`v1.2.5-rc1`), the workflow also attaches them to the GitHub Release. You can
+trigger it manually ("Run workflow") to dry-run on a branch.
 
 | OS | Output | Tooling |
 |----|--------|---------|
