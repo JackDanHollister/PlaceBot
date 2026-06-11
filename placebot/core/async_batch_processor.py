@@ -185,7 +185,7 @@ def _find_error_message(obj, _depth=0):
 
 
 class AnthropicBatchProcessor:
-    """Handles async batch processing for Anthropic Claude models."""
+    """Handles async batch processing for Anthropic models."""
     
     def __init__(self, api_key: str, model_id: str = "claude-haiku-4-5"):
         """

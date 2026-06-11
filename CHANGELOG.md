@@ -206,7 +206,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - 🎉 Initial public release
 - Support for 12 AI models across 4 vendors:
-  - Anthropic Claude (3 models)
+  - Anthropic models (3 profiles)
   - OpenAI GPT (3 models)
   - Google Gemini (3 models)
   - Local Qwen (3 models)

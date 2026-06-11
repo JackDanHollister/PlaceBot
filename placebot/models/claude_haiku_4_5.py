@@ -1,5 +1,5 @@
 # Claude Haiku 4.5 Model Profile with Prompt Caching Support
-# Anthropic Claude API Configuration with Enhanced Cost Efficiency
+# Anthropic API configuration with enhanced cost efficiency
 
 MODEL_NAME = "Claude Haiku 4.5 (Cached)"
 MODEL_PROVIDER = "Anthropic"

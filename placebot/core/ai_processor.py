@@ -327,7 +327,7 @@ Respond with JSON only."""
                     'output_tokens': usage.get('output_tokens', 0),
                     'total_tokens': usage.get('input_tokens', 0) + usage.get('output_tokens', 0),
                     'token_source': 'claude',
-                    # Cache-specific token data for Anthropic Claude
+                    # Cache-specific token data for Anthropic models
                     'cache_creation_input_tokens': usage.get('cache_creation_input_tokens', 0),
                     'cache_read_input_tokens': usage.get('cache_read_input_tokens', 0)
                 })

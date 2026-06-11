@@ -1,5 +1,5 @@
 # Claude Opus 4.8 Model Profile
-# Anthropic's most capable model for complex tasks requiring deep reasoning, with prompt caching
+# Anthropic model profile for complex tasks, with prompt caching
 
 MODEL_NAME = "Claude Opus 4.8 (Cached)"
 MODEL_PROVIDER = "Anthropic"

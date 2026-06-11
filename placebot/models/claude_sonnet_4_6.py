@@ -1,5 +1,5 @@
 # Claude Sonnet 4.6 Model Profile
-# Anthropic's best balance of speed and intelligence, with prompt caching
+# Anthropic model profile with prompt caching
 
 MODEL_NAME = "Claude Sonnet 4.6 (Cached)"
 MODEL_PROVIDER = "Anthropic"
