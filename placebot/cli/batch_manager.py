@@ -248,12 +248,14 @@ def download_job(batch_id, batch_dir=None):
 
         # Honour the output formats chosen at submission time (default to CSV)
         formats = job_info.get('output_formats') or ['csv']
+        # Honour the Darwin Core output choice made at submission time
+        use_dwc = bool(job_info.get('use_dwc', False))
 
         output_dir = get_output_dir()
         output_dir.mkdir(parents=True, exist_ok=True)
         base_path = str(output_dir / f"{job_info['batch_name']}_results")
 
-        written = OutputFormatter.write_output(records, base_path, formats)
+        written = OutputFormatter.write_output(records, base_path, formats, dwc=use_dwc)
 
         success_count = sum(1 for r in results if r.get('success'))
         total = len(results)

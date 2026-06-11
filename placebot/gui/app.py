@@ -312,20 +312,20 @@ def _processing_counts(records: list) -> dict:
 # These delegate to OutputFormatter so the GUI's downloads/auto-saves are
 # byte-for-byte identical to the CLI's files: same canonical column order, and
 # a UTF-8 BOM on CSV so Excel renders accents (e.g. "Rhône") correctly.
-def records_to_csv_bytes(records: list) -> bytes:
-    return OutputFormatter.records_to_csv_bytes(records)
+def records_to_csv_bytes(records: list, dwc: bool = False) -> bytes:
+    return OutputFormatter.records_to_csv_bytes(records, dwc=dwc)
 
 
-def records_to_tsv_bytes(records: list) -> bytes:
-    return OutputFormatter.records_to_tsv_bytes(records)
+def records_to_tsv_bytes(records: list, dwc: bool = False) -> bytes:
+    return OutputFormatter.records_to_tsv_bytes(records, dwc=dwc)
 
 
-def records_to_json_bytes(records: list) -> bytes:
-    return OutputFormatter.records_to_json_bytes(records)
+def records_to_json_bytes(records: list, dwc: bool = False) -> bytes:
+    return OutputFormatter.records_to_json_bytes(records, dwc=dwc)
 
 
-def records_to_geojson_bytes(records: list) -> bytes:
-    return OutputFormatter.records_to_geojson_bytes(records)
+def records_to_geojson_bytes(records: list, dwc: bool = False) -> bytes:
+    return OutputFormatter.records_to_geojson_bytes(records, dwc=dwc)
 
 
 _DOWNLOAD_BUILDERS = {
@@ -336,7 +336,7 @@ _DOWNLOAD_BUILDERS = {
 }
 
 
-def _render_download_buttons(records, formats, stem, key_prefix, heading="Download"):
+def _render_download_buttons(records, formats, stem, key_prefix, heading="Download", dwc=False):
     """Render optional 'download a copy' buttons for the given formats."""
     formats = [f for f in formats if f in _DOWNLOAD_BUILDERS] or ["csv"]
     st.subheader(heading)
@@ -345,7 +345,7 @@ def _render_download_buttons(records, formats, stem, key_prefix, heading="Downlo
         mime, ext, builder = _DOWNLOAD_BUILDERS[fmt]
         col.download_button(
             f"Download {fmt.upper()}",
-            data=builder(records),
+            data=builder(records, dwc=dwc),
             file_name=f"{stem}.{ext}",
             mime=mime,
             key=f"{key_prefix}_{fmt}",
@@ -868,6 +868,14 @@ def step_configure():
             "geojson": "GeoJSON (maps/GIS)",
         }[f],
     )
+    use_dwc = st.checkbox(
+        "Use Darwin Core (DwC) output terms",
+        value=st.session_state.get("use_dwc", False),
+        help=(
+            "Rename output columns to Darwin Core terms (dwc.tdwg.org), "
+            "e.g. Latitude → decimalLatitude, Exact_Site → locality."
+        ),
+    )
 
     # --- Real-time batch size ---
     batch_size = 8
@@ -888,6 +896,7 @@ def step_configure():
         st.session_state.mode = mode
         st.session_state.model_file = model_file
         st.session_state.formats = formats or ["csv"]
+        st.session_state.use_dwc = bool(use_dwc)
         st.session_state.batch_size = int(batch_size)
         st.session_state.step = "run"
         st.session_state.pop("run_results", None)
@@ -952,9 +961,10 @@ def _run_realtime(dataset_manager, selected, model_config):
         records = results.get("processed_records", [])
         tsv_path = results.get("output_path", "")
         formats = st.session_state.get("formats", ["csv"])
+        use_dwc = st.session_state.get("use_dwc", False)
         if records and tsv_path:
             base_path = os.path.splitext(tsv_path)[0]
-            saved_files = OutputFormatter.write_output(records, base_path, formats)
+            saved_files = OutputFormatter.write_output(records, base_path, formats, dwc=use_dwc)
 
     st.session_state.run_results = {
         "type": "realtime",
@@ -1020,6 +1030,7 @@ def _run_batch(selected, model_config):
         "record_count": len(records),
         "submitted_at": timestamp,
         "output_formats": st.session_state.formats,
+        "use_dwc": st.session_state.get("use_dwc", False),
     }
     info_file = os.path.join(batch_dir, f"{batch_name}_info.json")
     with open(info_file, "w", encoding="utf-8") as f:
@@ -1143,6 +1154,7 @@ def _run_staggered(selected, model_config):
             "record_count": end_idx - start_idx,
             "submitted_at": timestamp,
             "output_formats": output_formats,
+            "use_dwc": st.session_state.get("use_dwc", False),
         }
         batch_info_list.append(sub_info)
         with open(
@@ -1171,6 +1183,7 @@ def _run_staggered(selected, model_config):
         "dataset": selected["filename"],
         "submitted_at": timestamp,
         "output_formats": output_formats,
+        "use_dwc": st.session_state.get("use_dwc", False),
         "batches": batch_info_list,
     }
     summary_file = os.path.join(batch_dir, f"{batch_name}_staggered_summary.json")
@@ -1271,6 +1284,7 @@ def _show_results():
         + "_placebot",
         key_prefix="dl",
         heading="Or download a copy",
+        dwc=st.session_state.get("use_dwc", False),
     )
 
 
@@ -1312,6 +1326,7 @@ def _list_batch_jobs():
                     "record_count": data.get("total_records", 0),
                     "submitted_at": data.get("submitted_at", ""),
                     "output_formats": data.get("output_formats", ["csv"]),
+                    "use_dwc": data.get("use_dwc", False),
                     "batches_submitted": data.get(
                         "batches_submitted", len(data.get("batches", []))
                     ),
@@ -1388,6 +1403,7 @@ def step_batch_downloads():
 
     records = result["records"]
     formats = job.get("output_formats") or ["csv"]
+    use_dwc = bool(job.get("use_dwc", False))
     stem = job["label"] + ("_merged" if job["type"] == "staggered" else "")
 
     if job["type"] == "staggered":
@@ -1403,7 +1419,7 @@ def step_batch_downloads():
     saved_files = result.get("saved_files")
     if saved_files is None:
         base_path = os.path.join(str(get_output_dir()), stem)
-        saved_files = OutputFormatter.write_output(records, base_path, formats)
+        saved_files = OutputFormatter.write_output(records, base_path, formats, dwc=use_dwc)
         result["saved_files"] = saved_files  # cache on the stored result
 
     st.success(f"Downloaded {len(records):,} records.")
@@ -1425,6 +1441,7 @@ def step_batch_downloads():
         stem=stem,
         key_prefix="batch_dl",
         heading="Or download a copy",
+        dwc=use_dwc,
     )
 
 

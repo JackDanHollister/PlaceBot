@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Callable, Dict, List, Optional, Any
 
 from .coordinate_utils import preprocess_coordinates
+from .field_mapping import get_ai_locality, get_country, get_identifier, get_locality
 from .ai_processor import AIProcessor
 from .file_manager import DatasetManager, OutputManager
 from ..cli.user_interface import UserInterface
@@ -214,8 +215,8 @@ class BatchProcessor:
             processed_batch.append(processed_record)
 
             # Show individual record progress
-            barcode = record.get('Barcode', 'Unknown')
-            locality = record.get('Locality verbatim', '')
+            barcode = get_identifier(record)
+            locality = get_locality(record)
             UserInterface.show_record_processing(barcode, locality, processed_record)
 
             # Notify external front-ends (e.g. GUI progress bar)
@@ -249,9 +250,13 @@ class BatchProcessor:
         # Step 1: Preprocess coordinates (existing coords + grid reference conversion)
         enhanced_record = preprocess_coordinates(record)
         
-        # Step 2: Always call AI for normalization and restructuring
-        locality = record.get('label_verbatim', '') or record.get('Locality verbatim', '')
-        country = record.get('Country', '')
+        # Step 2: Always call AI for normalization and restructuring.
+        # ``ai_locality`` may include verbatim coordinate hints (e.g. DwC
+        # verbatimCoordinates); ``locality`` is the plain text used as the
+        # Exact_Site fallback / display value.
+        locality = get_locality(record)
+        ai_locality = get_ai_locality(record)
+        country = get_country(record)
         
         # Use preprocessed coordinates if available (grid refs, existing coords)
         existing_lat = enhanced_record.get('preprocessed_lat')
@@ -266,7 +271,7 @@ class BatchProcessor:
             print(f"   ⚠️  No preprocessed coords - AI will estimate")
         
         ai_result = ai_processor.process_locality(
-            locality, country, existing_lat, existing_lon, coord_source, existing_radius
+            ai_locality, country, existing_lat, existing_lon, coord_source, existing_radius
         )
         
         # Update statistics

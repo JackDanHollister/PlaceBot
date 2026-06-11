@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Darwin Core (DwC) input and output terms.** PlaceBot now recognises
+  [Darwin Core](https://dwc.tdwg.org/terms/) column names on input, so a
+  DwC-formatted file works with no manual column mapping: `verbatimLocality`
+  (locality text), `country`, `collectionID` / `catalogNumber` / `occurrenceID`
+  (record identifier), and `decimalLatitude` / `decimalLongitude` (existing
+  coordinates) are accepted alongside the original PlaceBot names. Free-text
+  `verbatimCoordinates` / `verbatimLatitude` / `verbatimLongitude` are passed to
+  the model as extra context. A new **Darwin Core output** option (a checkbox in
+  the GUI, a prompt in the CLI) renames the produced columns to their closest
+  DwC terms in every export (e.g. `Latitude` → `decimalLatitude`, `Exact_Site` →
+  `locality`, `Coordinate_Radius_Meters` → `coordinateUncertaintyInMeters`). The
+  internal working/progress files keep native names, so resume logic is
+  unaffected; only the final CSV/TSV/JSON/GeoJSON exports are renamed.
 - **OpenRouter provider support.** The GUI and config now support an
   `OPENROUTER_API_KEY`, and PlaceBot ships OpenRouter profiles for GPT-5 mini,
   GPT-4.1, Gemini 3.5 Flash, Claude Haiku 4.5, Claude Sonnet 4.6, and Claude

@@ -138,6 +138,11 @@ def run_interactive_mode(args):
     # Ask for output formats
     output_formats = UserInterface.prompt_output_formats()
     print(f"✅ Output formats: {', '.join(output_formats)}")
+
+    # Ask whether to rename output columns to Darwin Core terms
+    use_dwc = UserInterface.prompt_dwc_output()
+    if use_dwc:
+        print("✅ Output columns: Darwin Core terms")
     
     # Process based on mode
     print(f"\n🚀 Starting processing...")
@@ -283,7 +288,8 @@ def run_interactive_mode(args):
                             'end_record': end_idx,
                             'record_count': end_idx - start_idx,
                             'submitted_at': timestamp,
-                            'output_formats': output_formats
+                            'output_formats': output_formats,
+                            'use_dwc': use_dwc
                         }
                         batch_info_list.append(sub_batch_info)
                         
@@ -318,6 +324,7 @@ def run_interactive_mode(args):
                         'dataset': selected_dataset['filename'],
                         'submitted_at': timestamp,
                         'output_formats': output_formats,
+                        'use_dwc': use_dwc,
                         'batches': batch_info_list
                     }, f, indent=2, ensure_ascii=False)
                 
@@ -366,9 +373,10 @@ def run_interactive_mode(args):
                     'dataset': selected_dataset['filename'],
                     'record_count': len(records),
                     'submitted_at': timestamp,
-                    'output_formats': output_formats
+                    'output_formats': output_formats,
+                    'use_dwc': use_dwc
                 }, f, indent=2, ensure_ascii=False)
-            
+
             print(f"\n✅ Batch submitted successfully!")
             print(f"   📋 Batch ID: {batch_id}")
             print(f"   💾 Info saved: {batch_info_file}")
@@ -407,7 +415,7 @@ def run_interactive_mode(args):
         tsv_path = results.get('output_path', '')
         if records and tsv_path:
             base_path = os.path.splitext(tsv_path)[0]
-            written = OutputFormatter.write_output(records, base_path, output_formats)
+            written = OutputFormatter.write_output(records, base_path, output_formats, dwc=use_dwc)
             for fmt, path in written.items():
                 print(f"   💾 {fmt.upper()} saved: {path}")
     
