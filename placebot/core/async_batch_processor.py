@@ -21,6 +21,7 @@ import anthropic
 
 # New import: coordinate preprocessing utilities
 from .coordinate_utils import preprocess_coordinates, detect_grid_references
+from .field_mapping import get_ai_locality, get_country, get_identifier, get_locality
 
 
 def build_coordinate_context_for_prompt(record: Dict[str, Any]) -> str:
@@ -51,7 +52,7 @@ def build_coordinate_context_for_prompt(record: Dict[str, Any]) -> str:
             # Try to use the converted_grid_ref if present; otherwise detect
             grid_text = processed.get('converted_grid_ref')
             if not grid_text:
-                locality = record.get('Locality verbatim', '') or record.get('label_verbatim', '')
+                locality = get_locality(record)
                 detected = detect_grid_references(locality)
                 grid_text = ", ".join(detected) if detected else "grid reference"
             context = (
@@ -214,12 +215,12 @@ class AnthropicBatchProcessor:
         requests = []
         
         for record in records:
-            barcode = record.get('Barcode', f'record_{len(requests)}')
+            barcode = get_identifier(record, default=f'record_{len(requests)}')
             # Ensure barcode is a string
             barcode = str(barcode)
-            # Handle both 'Locality verbatim' and 'label_verbatim' field names
-            locality = record.get('Locality verbatim') or record.get('label_verbatim', '')
-            country = record.get('Country', '')
+            # Resolve locality/country from native or Darwin Core columns
+            locality = get_ai_locality(record)
+            country = get_country(record)
 
             # Build coordinate context from preprocessing
             coordinate_context = build_coordinate_context_for_prompt(record)
@@ -488,12 +489,12 @@ class OpenAIBatchProcessor:
 
         with open(output_file, 'w', encoding='utf-8') as f:
             for record in records:
-                barcode = record.get('Barcode', f'record_{records.index(record)}')
+                barcode = get_identifier(record, default=f'record_{records.index(record)}')
                 # Ensure barcode is a string for OpenAI API
                 barcode = str(barcode)
-                # Handle both 'Locality verbatim' and 'label_verbatim' field names
-                locality = record.get('Locality verbatim') or record.get('label_verbatim', '')
-                country = record.get('Country', '')
+                # Resolve locality/country from native or Darwin Core columns
+                locality = get_ai_locality(record)
+                country = get_country(record)
 
                 # Build coordinate context from preprocessing
                 coordinate_context = build_coordinate_context_for_prompt(record)
@@ -798,11 +799,12 @@ class GeminiBatchProcessor:
         
         with open(output_file, 'w', encoding='utf-8') as f:
             for record in records:
-                barcode = record.get('Barcode', f'record_{records.index(record)}')
-                # Ensure barcode is string and handle both field names
+                barcode = get_identifier(record, default=f'record_{records.index(record)}')
+                # Ensure barcode is a string
                 barcode = str(barcode)
-                locality = record.get('Locality verbatim') or record.get('label_verbatim', '')
-                country = record.get('Country', '')
+                # Resolve locality/country from native or Darwin Core columns
+                locality = get_ai_locality(record)
+                country = get_country(record)
 
                 # Build coordinate context from preprocessing
                 coordinate_context = build_coordinate_context_for_prompt(record)
@@ -1156,10 +1158,10 @@ class GeminiBatchProcessor:
         requests = []
         
         for record in records:
-            barcode = record.get('Barcode', f'record_{len(requests)}')
-            # Handle both 'Locality verbatim' and 'label_verbatim' field names
-            locality = record.get('Locality verbatim') or record.get('label_verbatim', '')
-            country = record.get('Country', '')
+            barcode = get_identifier(record, default=f'record_{len(requests)}')
+            # Resolve locality/country from native or Darwin Core columns
+            locality = get_ai_locality(record)
+            country = get_country(record)
 
             # Build coordinate context from preprocessing
             coordinate_context = build_coordinate_context_for_prompt(record)

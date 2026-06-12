@@ -425,6 +425,20 @@ class UserInterface:
             
             return formats if formats else ['csv']  # Default to CSV
 
+    @staticmethod
+    def prompt_dwc_output() -> bool:
+        """Ask whether output columns should use Darwin Core (DwC) terms.
+
+        Returns:
+            True if the user wants Darwin Core column names in the exports.
+        """
+        print("\n🧬 DARWIN CORE (DwC) OUTPUT")
+        print("=" * 50)
+        print("Rename output columns to Darwin Core terms (dwc.tdwg.org)?")
+        print("e.g. Latitude -> decimalLatitude, Exact_Site -> locality.")
+        choice = input("Use Darwin Core output terms? (y/N): ").strip().lower()
+        return choice in ('y', 'yes')
+
 
 if __name__ == "__main__":
     # Test the user interface

@@ -55,12 +55,14 @@ class DatasetPreview:
         for record in data:
             all_fields.update(k for k in record.keys() if isinstance(k, str))
         
-        # Check for coordinate fields
-        has_lat = any(k in all_fields for k in ['latitude', 'lat'])
-        has_lon = any(k in all_fields for k in ['longitude', 'lon', 'long'])
+        # Check for coordinate fields (case-insensitive; includes Darwin Core
+        # decimalLatitude/decimalLongitude and verbatim variants)
+        lowered_fields = {f.lower() for f in all_fields}
+        has_lat = any('lat' in f for f in lowered_fields)
+        has_lon = any('lon' in f for f in lowered_fields)
         has_coordinates = has_lat and has_lon
-        
-        # Check for locality field
+
+        # Check for locality field (native names + Darwin Core verbatimLocality)
         locality_fields = [f for f in all_fields if 'locality' in f.lower() or 'location' in f.lower()]
         has_locality = len(locality_fields) > 0
         

@@ -45,7 +45,12 @@ def _suppress_streamlit_first_run_prompt():
 
 
 def _streamlit_argv(app_path: str) -> list:
-    """Build the Streamlit command line for the local desktop GUI."""
+    """Build the Streamlit command line for the local desktop GUI.
+
+    ``client.toolbarMode minimal`` hides Streamlit's developer toolbar items
+    (most visibly the "Deploy" button) while keeping the settings/print menu -
+    the right trade-off for non-technical desktop users.
+    """
     return [
         "streamlit",
         "run",
@@ -54,6 +59,8 @@ def _streamlit_argv(app_path: str) -> list:
         "false",
         "--server.address",
         "127.0.0.1",
+        "--client.toolbarMode",
+        "minimal",
     ]
 
 

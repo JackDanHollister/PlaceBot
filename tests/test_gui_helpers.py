@@ -137,3 +137,8 @@ def test_gui_launcher_binds_to_loopback_only():
     argv = launcher._streamlit_argv("/tmp/app.py")
     assert argv[0:3] == ["streamlit", "run", "/tmp/app.py"]
     assert argv[argv.index("--server.address") + 1] == "127.0.0.1"
+
+
+def test_gui_launcher_hides_deploy_toolbar():
+    argv = launcher._streamlit_argv("/tmp/app.py")
+    assert argv[argv.index("--client.toolbarMode") + 1] == "minimal"

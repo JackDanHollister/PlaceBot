@@ -119,13 +119,35 @@ configuration.
 
 ## Input Data Format
 
-PlaceBot accepts TSV or CSV files with locality descriptions:
+PlaceBot accepts TSV or CSV files with locality descriptions. It needs a
+record identifier column and a locality text column; a country column and
+existing coordinates are optional but improve results.
 
 ```tsv
-locality_id	locality_description
-1	"California, San Francisco Bay, Golden Gate Park"
-2	"UK, Scotland, Edinburgh, Royal Botanic Garden"
+Barcode	Locality verbatim	Country
+1	"California, San Francisco Bay, Golden Gate Park"	United States
+2	"UK, Scotland, Edinburgh, Royal Botanic Garden"	United Kingdom
 ```
+
+### Darwin Core support
+
+PlaceBot also recognises [Darwin Core](https://dwc.tdwg.org/terms/) column
+names, so files exported from collection management systems work without
+renaming anything. The following terms are accepted as inputs:
+
+| Concept | Native column | Darwin Core terms accepted |
+| --- | --- | --- |
+| Record identifier | `Barcode` | `collectionID`, `catalogNumber`, `occurrenceID`, `materialEntityID`, `recordNumber` |
+| Locality text | `Locality verbatim` | `verbatimLocality`, `locality` |
+| Country | `Country` | `country` |
+| Existing coordinates | `Latitude` / `Longitude` | `decimalLatitude` / `decimalLongitude` |
+| Verbatim coordinates | — | `verbatimCoordinates`, `verbatimLatitude`, `verbatimLongitude` (passed to the model as context) |
+
+To emit Darwin Core column names in the results, tick **Use Darwin Core (DwC)
+output terms** in the GUI, or answer yes at the Darwin Core prompt in the CLI.
+PlaceBot's produced columns are then renamed to their closest DwC equivalents
+(e.g. `Latitude` → `decimalLatitude`, `Exact_Site` → `locality`,
+`Coordinate_Radius_Meters` → `coordinateUncertaintyInMeters`) in every export.
 
 ## Model Comparison
 

@@ -32,10 +32,12 @@ def create_gemini_batch_processor():
             """Prepare inline batch requests list for Gemini."""
             requests_list = []
             
+            from .field_mapping import get_ai_locality, get_country, get_identifier
+
             for idx, record in enumerate(records):
-                barcode = record.get('Barcode', f'record_{idx}')
-                locality = record.get('Locality verbatim') or record.get('label_verbatim', '')
-                country = record.get('Country', '')
+                barcode = get_identifier(record, default=f'record_{idx}')
+                locality = get_ai_locality(record)
+                country = get_country(record)
                 
                 # Format as Gemini batch request
                 request = {

@@ -85,9 +85,13 @@ class DatasetManager:
                 reader = csv.DictReader(f, delimiter=delimiter)
                 fieldnames = reader.fieldnames or []
                 
-                # Check for required columns
-                has_locality = any('locality' in col.lower() for col in fieldnames)
-                has_barcode = any('barcode' in col.lower() or 'id' in col.lower() for col in fieldnames)
+                # Check for required columns (native names or Darwin Core terms)
+                from placebot.core.field_mapping import (
+                    has_identifier_column,
+                    has_locality_column,
+                )
+                has_locality = has_locality_column(fieldnames)
+                has_barcode = has_identifier_column(fieldnames)
                 
                 return {
                     'filename': filename,

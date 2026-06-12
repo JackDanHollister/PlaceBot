@@ -7,7 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **GUI is now a single scrolling page.** The "Process data" page no longer
+  steps between separate screens — *1 · Choose your data*, *2 · Choose how to
+  process*, and *3 · Processing* now stack on one page and reveal as you go,
+  so the view never blanks out and auto-scrolls to the active section.
+- **Much faster, no more freeze on toggles.** Model profiles and the Ollama
+  status probe are cached at the process level (modules by path+mtime; the
+  Ollama probe with a 15s TTL — including the "Ollama not running" result that
+  previously cost a network timeout on every interaction), and the configure
+  section runs as a Streamlit fragment so toggling options (e.g. Darwin Core
+  output) reruns only that section instead of the whole app.
+- **Compacted sidebar** so all options fit without scrolling, and **removed the
+  Streamlit "Deploy" button** from the desktop app (`toolbarMode = minimal`, set
+  both in the `placebot-gui` launcher and a repo `.streamlit/config.toml`).
+- The GUI extra now requires `streamlit>=1.37` (for `st.fragment`).
+
 ### Added
+- **Darwin Core (DwC) input and output terms.** PlaceBot now recognises
+  [Darwin Core](https://dwc.tdwg.org/terms/) column names on input, so a
+  DwC-formatted file works with no manual column mapping: `verbatimLocality`
+  (locality text), `country`, `collectionID` / `catalogNumber` / `occurrenceID`
+  (record identifier), and `decimalLatitude` / `decimalLongitude` (existing
+  coordinates) are accepted alongside the original PlaceBot names. Free-text
+  `verbatimCoordinates` / `verbatimLatitude` / `verbatimLongitude` are passed to
+  the model as extra context. A new **Darwin Core output** option (a checkbox in
+  the GUI, a prompt in the CLI) renames the produced columns to their closest
+  DwC terms in every export (e.g. `Latitude` → `decimalLatitude`, `Exact_Site` →
+  `locality`, `Coordinate_Radius_Meters` → `coordinateUncertaintyInMeters`). The
+  internal working/progress files keep native names, so resume logic is
+  unaffected; only the final CSV/TSV/JSON/GeoJSON exports are renamed.
 - **OpenRouter provider support.** The GUI and config now support an
   `OPENROUTER_API_KEY`, and PlaceBot ships OpenRouter profiles for GPT-5 mini,
   GPT-4.1, Gemini 3.5 Flash, Claude Haiku 4.5, Claude Sonnet 4.6, and Claude

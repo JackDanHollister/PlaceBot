@@ -244,9 +244,10 @@ def preprocess_coordinates(record: Dict) -> Dict:
     Returns:
         Enhanced record with preprocessing results
     """
-    locality = record.get('label_verbatim', '') or record.get('Locality verbatim', '')
-    existing_lat = record.get('Latitude', record.get('latitude', ''))
-    existing_lon = record.get('Longitude', record.get('longitude', ''))
+    from .field_mapping import get_existing_coordinates, get_locality
+
+    locality = get_locality(record)
+    existing_lat, existing_lon = get_existing_coordinates(record)
     
     # Check for existing valid coordinates first
     lat, lon = validate_coordinates(existing_lat, existing_lon)

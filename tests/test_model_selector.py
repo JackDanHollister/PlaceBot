@@ -1,8 +1,10 @@
 """Tests for model discovery and profile loading."""
 
 from placebot.core.model_selector import (
+    clear_model_caches,
     discover_models,
     get_ollama_models,
+    get_ollama_models_cached,
     load_all_model_profiles,
     load_model_profile,
 )
@@ -126,6 +128,84 @@ def test_get_ollama_models_handles_unavailable_server(monkeypatch):
 
     monkeypatch.setattr("placebot.core.model_selector.requests.get", fail)
     assert get_ollama_models() == []
+
+
+def test_get_ollama_models_cached_avoids_repeat_probes(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_probe(timeout=0.5):
+        calls["n"] += 1
+        return [{"name": "qwen3:8b", "size": 1, "details": {}}]
+
+    monkeypatch.setattr("placebot.core.model_selector.get_ollama_models", fake_probe)
+
+    first = get_ollama_models_cached()
+    second = get_ollama_models_cached()
+    assert first == second
+    assert calls["n"] == 1  # second call served from cache
+
+    assert get_ollama_models_cached(force_refresh=True) == first
+    assert calls["n"] == 2
+
+    clear_model_caches()
+    get_ollama_models_cached()
+    assert calls["n"] == 3
+
+
+def test_get_ollama_models_cached_caches_failed_probe(monkeypatch):
+    """An empty result (Ollama down) must be cached - that's the slow case."""
+    calls = {"n": 0}
+
+    def fake_probe(timeout=0.5):
+        calls["n"] += 1
+        return []
+
+    monkeypatch.setattr("placebot.core.model_selector.get_ollama_models", fake_probe)
+
+    assert get_ollama_models_cached() == []
+    assert get_ollama_models_cached() == []
+    assert calls["n"] == 1
+
+
+def test_load_model_profile_reuses_module():
+    first = load_model_profile("claude_haiku_4_5")
+    second = load_model_profile("claude_haiku_4_5")
+    assert first["module"] is second["module"]
+
+
+def test_load_model_profile_reimports_on_mtime_change(tmp_path):
+    import os
+    import time as time_mod
+
+    from placebot.core import model_selector
+
+    models_dir = os.path.join(
+        os.path.dirname(os.path.abspath(model_selector.__file__)), "..", "models"
+    )
+    file_path = os.path.abspath(os.path.join(models_dir, "claude_haiku_4_5.py"))
+
+    first = load_model_profile("claude_haiku_4_5")
+    # Bump the file's mtime without touching its contents
+    new_time = time_mod.time() + 10
+    os.utime(file_path, (new_time, new_time))
+    try:
+        second = load_model_profile("claude_haiku_4_5")
+        assert first["module"] is not second["module"]
+    finally:
+        # Restore a sane mtime so subsequent runs aren't skewed
+        now = time_mod.time()
+        os.utime(file_path, (now, now))
+
+
+def test_profile_api_key_fresh_after_env_change(isolated_home, monkeypatch):
+    """Module caching must not freeze API-key availability (modules-only cache)."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    before = load_model_profile("claude_haiku_4_5")
+    assert not before["api_key"]
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-123")
+    after = load_model_profile("claude_haiku_4_5")
+    assert after["api_key"] == "sk-ant-test-123"
 
 
 def test_dynamic_ollama_profiles_are_added(monkeypatch):
