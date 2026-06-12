@@ -41,7 +41,7 @@ local = [
     "ollama>=0.3.0",
 ]
 gui = [
-    "streamlit>=1.30",
+    "streamlit>=1.37",
 ]
 dev = [
     "pytest>=7.0.0",

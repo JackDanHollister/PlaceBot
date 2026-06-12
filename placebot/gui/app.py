@@ -40,7 +40,8 @@ from placebot.core.data_dirs import (
 from placebot.core.file_manager import DatasetManager, OutputManager
 from placebot.core.dataset_preview import DatasetPreview
 from placebot.core.model_selector import (
-    get_ollama_models,
+    clear_ollama_cache,
+    get_ollama_models_cached,
     is_local_model_config,
     load_all_model_profiles,
     load_model_profile,
@@ -262,8 +263,8 @@ def _how_to_use_steps() -> list:
         ),
         (
             "Pick processing settings",
-            "Click **Continue**, choose real-time or batch processing, then "
-            "select a cloud/API model or **Local Ollama**.",
+            "Scroll down to section 2, choose real-time or batch processing, "
+            "then select a cloud/API model or **Local Ollama**.",
         ),
         (
             "Review cost and outputs",
@@ -272,8 +273,9 @@ def _how_to_use_steps() -> list:
         ),
         (
             "Run and collect results",
-            "Click **Start processing**. Results are saved automatically in "
-            "the output folder and can also be downloaded from the results page.",
+            "Click **Start processing** — section 3 appears below with live "
+            "progress. Results are saved automatically in the output folder "
+            "and can also be downloaded from that section.",
         ),
         (
             "Use batch downloads later",
@@ -353,7 +355,12 @@ def _render_download_buttons(records, formats, stem, key_prefix, heading="Downlo
 
 
 def _load_all_model_configs(model_names: tuple) -> list:
-    """Load model profiles. Not cached: configs hold live function/module refs."""
+    """Load model profiles.
+
+    Cheap to call repeatedly: model_selector caches the imported profile
+    modules (by path + mtime) and the Ollama probe (15s TTL) at module level,
+    while key availability is recomputed fresh on every call.
+    """
     if model_names:
         configs = []
         for name in model_names:
@@ -363,6 +370,22 @@ def _load_all_model_configs(model_names: tuple) -> list:
                 configs.append(cfg)
         return configs
     return load_all_model_profiles(include_dynamic_ollama=True)
+
+
+def _dataset_records_cached(dataset_manager, selected: dict) -> list:
+    """Load a dataset's records, reusing the previous load when unchanged.
+
+    The single-page layout re-renders the data section on every rerun, so
+    re-reading a large CSV each time would undo the responsiveness gains from
+    model caching. Keyed by (filename, row_count) in session state.
+    """
+    cache_key = (selected["filename"], selected["row_count"])
+    cached = st.session_state.get("_dataset_cache")
+    if cached is not None and cached[0] == cache_key:
+        return cached[1]
+    records = dataset_manager.load_dataset(selected)
+    st.session_state["_dataset_cache"] = (cache_key, records)
+    return records
 
 
 # ---------------------------------------------------------------------------
@@ -467,11 +490,9 @@ def _render_google_keys(config):
 
 def _render_local_model_setup():
     """Show local/Ollama setup status in the sidebar from every page."""
-    installed = get_ollama_models(timeout=0.35)
+    installed = get_ollama_models_cached(timeout=0.35)
     badge = f"{len(installed)} installed" if installed else "Setup needed"
-    with st.sidebar.expander(
-        f"Local models (Ollama) — {badge}", expanded=not installed
-    ):
+    with st.sidebar.expander(f"Local models (Ollama) — {badge}", expanded=False):
         if installed:
             st.caption(
                 "Ollama is running. These models can appear under "
@@ -491,6 +512,7 @@ def _render_local_model_setup():
                 "and choose **Local Ollama** in step 2."
             )
         if st.button("Refresh local models", key="refresh_local_models"):
+            clear_ollama_cache()
             st.rerun()
 
 
@@ -499,9 +521,8 @@ def render_sidebar():
 
     logo = get_logo_path()
     if logo:
-        st.sidebar.image(logo, use_container_width=True)
+        st.sidebar.image(logo, width=140)
 
-    st.sidebar.header("Navigation")
     page = st.sidebar.radio(
         "Go to",
         ["Process data", "Batch downloads", "Ensemble analysis"],
@@ -510,11 +531,7 @@ def render_sidebar():
     )
 
     st.sidebar.divider()
-    st.sidebar.header("API Keys")
-    st.sidebar.caption(
-        "Pasted keys are used for this session only unless you tick "
-        "**Remember on this computer**. Local (Qwen/Ollama) models need no key."
-    )
+    st.sidebar.caption("**API keys** — cloud models only; local models need none.")
 
     for provider, label in PROVIDERS:
         saved = _provider_saved_configured(provider)
@@ -531,25 +548,35 @@ def render_sidebar():
         with st.sidebar.expander(
             f"{label} — {badge}", expanded=not (saved or session or available)
         ):
+            st.caption(
+                "Used for this session only unless you tick "
+                "**Remember on this computer**."
+            )
             if provider == "google":
                 _render_google_keys(config)
             else:
                 _render_single_key(config, provider, label, saved)
 
-    st.sidebar.divider()
     _render_local_model_setup()
-    st.sidebar.divider()
-    with st.sidebar:
-        render_output_folder_link("Data folder")
-    if st.sidebar.button("Start over"):
+
+    st.sidebar.caption(f"Data folder: `{get_output_dir()}`")
+    col1, col2 = st.sidebar.columns(2)
+    if col1.button("Open folder", key="sidebar_open_folder"):
+        if open_in_file_manager(str(get_output_dir())):
+            st.toast("Opened output folder in your file browser.")
+        else:
+            st.sidebar.warning("Could not open the folder. Copy the path above.")
+    if col2.button("Start over"):
         for k in [
-            "step",
             "selected_dataset",
             "dataset_records",
+            "_dataset_cache",
             "mode",
             "model_file",
             "formats",
+            "use_dwc",
             "batch_size",
+            "processing_requested",
             "run_results",
         ]:
             st.session_state.pop(k, None)
@@ -559,11 +586,11 @@ def render_sidebar():
 
 
 # ---------------------------------------------------------------------------
-# Step 1: choose / upload a dataset
+# Section 1: choose / upload a dataset
 # ---------------------------------------------------------------------------
 
 
-def step_dataset(dataset_manager: DatasetManager):
+def _render_dataset_section(dataset_manager: DatasetManager):
     st.header("1 · Choose your data")
     st.write(
         "Upload a spreadsheet of localities (CSV or TSV), or pick one already "
@@ -607,7 +634,7 @@ def step_dataset(dataset_manager: DatasetManager):
     selected = datasets[choice]
 
     # Preview
-    records = dataset_manager.load_dataset(selected)
+    records = _dataset_records_cached(dataset_manager, selected)
     stats = DatasetPreview.get_statistics(records)
 
     c1, c2, c3 = st.columns(3)
@@ -630,19 +657,30 @@ def step_dataset(dataset_manager: DatasetManager):
             "double-check your file."
         )
 
-    if st.button("Continue →", type="primary"):
-        st.session_state.selected_dataset = selected
-        st.session_state.dataset_records = records
-        st.session_state.step = "configure"
-        st.rerun()
+    # Commit the selection so section 2 appears below; if the dataset changed,
+    # invalidate any processing section from a previous run.
+    prev = st.session_state.get("selected_dataset")
+    changed = prev is not None and (
+        (prev["filename"], prev["row_count"])
+        != (selected["filename"], selected["row_count"])
+    )
+    st.session_state.selected_dataset = selected
+    st.session_state.dataset_records = records
+    if changed:
+        st.session_state.processing_requested = False
+        st.session_state.pop("run_results", None)
 
 
 # ---------------------------------------------------------------------------
-# Step 2: configure (mode, model, formats) + cost estimate
+# Section 2: configure (mode, model, formats) + cost estimate
 # ---------------------------------------------------------------------------
 
 
-def step_configure():
+@st.fragment
+def _render_configure_section():
+    # A fragment so toggling widgets here (mode, model table, formats, DwC)
+    # reruns only this section, not the dataset preview or sidebar. Anything
+    # that must update the rest of the page uses st.rerun(scope="app").
     selected = st.session_state.selected_dataset
     num_records = selected["row_count"]
 
@@ -888,32 +926,52 @@ def step_configure():
             help="How many records to send per group. Smaller = more reliable.",
         )
 
-    col1, col2 = st.columns([1, 1])
-    if col1.button("← Back"):
-        st.session_state.step = "dataset"
-        st.rerun()
-    if col2.button("Start processing →", type="primary"):
+    if st.button("Start processing →", type="primary"):
+        # Snapshot the chosen settings so later widget fiddling in this
+        # section cannot change a run that is already in flight.
         st.session_state.mode = mode
         st.session_state.model_file = model_file
         st.session_state.formats = formats or ["csv"]
         st.session_state.use_dwc = bool(use_dwc)
         st.session_state.batch_size = int(batch_size)
-        st.session_state.step = "run"
+        st.session_state.processing_requested = True
         st.session_state.pop("run_results", None)
-        st.rerun()
+        st.session_state._scroll_to_processing = True
+        # scope="app": a fragment-scoped rerun would never show section 3.
+        st.rerun(scope="app")
 
 
 # ---------------------------------------------------------------------------
-# Step 3: run + results
+# Section 3: run + results
 # ---------------------------------------------------------------------------
 
 
-def step_run(dataset_manager: DatasetManager):
+def _render_processing_section(dataset_manager: DatasetManager):
     selected = st.session_state.selected_dataset
     mode = st.session_state.mode
     model_config = load_model_profile(st.session_state.model_file)
 
-    st.header("3 · Processing")
+    st.header("3 · Processing", anchor="processing")
+    if model_config is None:
+        st.error(
+            "The selected model is no longer available. Pick another model "
+            "in section 2 and start again."
+        )
+        return
+    st.caption(
+        f"Dataset: **{selected['filename']}** · Mode: {mode} · "
+        f"Model: {model_config.get('name', st.session_state.model_file)}"
+    )
+
+    # One-shot smooth scroll down to this section after Start is clicked.
+    if st.session_state.pop("_scroll_to_processing", False):
+        import streamlit.components.v1 as components
+
+        components.html(
+            "<script>parent.document.getElementById('processing')"
+            "?.scrollIntoView({behavior:'smooth'});</script>",
+            height=0,
+        )
 
     if "run_results" not in st.session_state:
         if mode == "realtime":
@@ -1625,6 +1683,23 @@ def step_ensemble_analysis():
 # ---------------------------------------------------------------------------
 
 
+def _page_process(dataset_manager: DatasetManager) -> None:
+    """Single scrolling 'Process data' page: sections 1 → 2 → 3.
+
+    All visible sections render top-to-bottom on every rerun, so moving
+    between them never blanks the page (unlike the old step wizard).
+    Section 2 appears once a dataset is selected; section 3 once the user
+    clicks Start processing.
+    """
+    _render_dataset_section(dataset_manager)
+    if st.session_state.get("selected_dataset"):
+        st.divider()
+        _render_configure_section()
+    if st.session_state.get("processing_requested"):
+        st.divider()
+        _render_processing_section(dataset_manager)
+
+
 def main():
     logo = get_logo_path()
     st.set_page_config(
@@ -1661,18 +1736,11 @@ def main():
         step_ensemble_analysis()
         return
 
-    step = st.session_state.get("step", "dataset")
     dataset_manager = DatasetManager(
         input_folder=str(get_input_dir()),
         output_folder=str(get_output_dir()),
     )
-
-    if step == "dataset":
-        step_dataset(dataset_manager)
-    elif step == "configure":
-        step_configure()
-    elif step == "run":
-        step_run(dataset_manager)
+    _page_process(dataset_manager)
 
 
 # Streamlit executes this script with __name__ == "__main__".

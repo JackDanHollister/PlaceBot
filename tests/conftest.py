@@ -3,6 +3,15 @@
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_model_selector_caches():
+    """Keep the module-level TTL/module caches order-independent across tests."""
+    from placebot.core import model_selector
+
+    model_selector.clear_model_caches()
+    yield
+
+
 @pytest.fixture
 def sample_records():
     """A small set of processed-style records for formatter/preview tests."""

@@ -9,6 +9,7 @@ Each model has its own configuration file with API keys, pricing, and capabiliti
 
 import os
 import importlib.util
+import time
 from typing import Dict, List, Optional, Any
 import sys
 from types import SimpleNamespace
@@ -57,6 +58,83 @@ def get_ollama_models(timeout: float = 0.5) -> List[Dict[str, Any]]:
             }
         )
     return installed
+
+
+# ---------------------------------------------------------------------------
+# Caches
+# ---------------------------------------------------------------------------
+# Module-level caches shared by every caller in the process (CLI and GUI).
+# The Streamlit GUI reruns the whole script on every widget interaction, so
+# without these each rerun would re-probe Ollama over HTTP (0.35-0.5s timeout
+# per call when Ollama is down) and re-import every models/*.py file.
+# Single-user desktop app: no locking needed.
+
+_OLLAMA_CACHE_TTL = 15.0  # seconds; a freshly started Ollama shows up quickly
+_ollama_cache: Dict[str, Any] = {"ts": 0.0, "models": None}
+
+# file_path -> (mtime, module); mtime keying picks up edited profile files.
+_module_cache: Dict[str, Any] = {}
+
+
+def get_ollama_models_cached(
+    timeout: float = 0.5,
+    ttl: float = _OLLAMA_CACHE_TTL,
+    force_refresh: bool = False,
+) -> List[Dict[str, Any]]:
+    """TTL-cached :func:`get_ollama_models`.
+
+    A failed probe (empty list) is cached too - that is the important case:
+    when Ollama is not running, every uncached probe blocks for the full
+    timeout. Call with ``force_refresh=True`` (or :func:`clear_ollama_cache`)
+    after installing/starting Ollama to pick up changes immediately.
+    """
+    now = time.monotonic()
+    if (
+        not force_refresh
+        and _ollama_cache["models"] is not None
+        and now - _ollama_cache["ts"] <= ttl
+    ):
+        return _ollama_cache["models"]
+
+    # Resolved via the module-global name so tests that monkeypatch
+    # ``get_ollama_models`` are still intercepted.
+    models = get_ollama_models(timeout=timeout)
+    _ollama_cache["models"] = models
+    _ollama_cache["ts"] = now
+    return models
+
+
+def clear_ollama_cache() -> None:
+    """Force the next :func:`get_ollama_models_cached` call to re-probe."""
+    _ollama_cache["models"] = None
+    _ollama_cache["ts"] = 0.0
+
+
+def clear_model_caches() -> None:
+    """Clear the Ollama probe cache and the model module cache (for tests)."""
+    clear_ollama_cache()
+    _module_cache.clear()
+
+
+def _load_model_module(model_file: str, file_path: str):
+    """Import a model profile module, reusing a cached import when unchanged."""
+    try:
+        mtime = os.path.getmtime(file_path)
+    except OSError:
+        return None
+
+    cached = _module_cache.get(file_path)
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
+
+    spec = importlib.util.spec_from_file_location(model_file, file_path)
+    if spec is None or spec.loader is None:
+        return None
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _module_cache[file_path] = (mtime, module)
+    return module
 
 
 def _format_ollama_request(model_id: str, prompt: str, max_tokens: int = 8192) -> dict:
@@ -127,7 +205,7 @@ def _apply_ollama_runtime_status(profile: Dict[str, Any]) -> Dict[str, Any]:
     if not is_local_model_config(profile):
         return profile
 
-    installed = get_ollama_models()
+    installed = get_ollama_models_cached()
     installed_ids = {m["name"] for m in installed}
     model_id = profile.get("model_id", "")
     if model_id in installed_ids:
@@ -168,7 +246,7 @@ def load_model_profile(model_file: str) -> Optional[Dict[str, Any]]:
     try:
         if model_file.startswith(OLLAMA_DYNAMIC_PREFIX):
             model_id = model_file[len(OLLAMA_DYNAMIC_PREFIX) :]
-            for installed in get_ollama_models():
+            for installed in get_ollama_models_cached():
                 if installed["name"] == model_id:
                     return _ollama_profile_from_model(installed)
             return None
@@ -181,13 +259,10 @@ def load_model_profile(model_file: str) -> Optional[Dict[str, Any]]:
         if not os.path.exists(file_path):
             return None
 
-        # Load the module dynamically
-        spec = importlib.util.spec_from_file_location(model_file, file_path)
-        if spec is None or spec.loader is None:
+        # Load the module dynamically (cached by path + mtime)
+        module = _load_model_module(model_file, file_path)
+        if module is None:
             return None
-
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
 
         # Import config to get API keys from .env file
         from placebot.core.config import get_config
@@ -273,7 +348,7 @@ def load_all_model_profiles(
             static_model_ids.add(profile.get("model_id", ""))
 
     if include_dynamic_ollama:
-        for installed in get_ollama_models():
+        for installed in get_ollama_models_cached():
             model_id = installed["name"]
             if model_id in static_model_ids:
                 continue

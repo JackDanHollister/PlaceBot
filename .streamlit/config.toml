@@ -1,0 +1,10 @@
+# Streamlit defaults for source checkouts (running `streamlit run
+# placebot/gui/app.py` directly). The packaged `placebot-gui` launcher passes
+# the same options as CLI flags, so end users get them regardless.
+# server.address is deliberately not set here so contributors can test on LAN.
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
