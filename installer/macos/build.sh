@@ -59,10 +59,18 @@ PY="$RES/python/bin/python3"
 # 2. Install the wheel + [gui] extra. The PEP 508 "name[extra] @ file://" form
 #    installs THIS wheel as placebot (pinning the version) and pulls streamlit +
 #    runtime deps from PyPI.
+#
+# TEMPORARY: cryptography (transitive, via google-genai -> google-auth) dropped
+# Intel macOS wheels in 49.0.0 (arm64-only from there on). With no x86_64 wheel,
+# pip falls back to the sdist, whose Rust build cannot cross-compile on the
+# arm64 runner (openssl-sys finds no x86_64 OpenSSL). Pin to 48.x, the last
+# series with universal2 wheels. Proper fix: ship a native arm64 .dmg (or
+# arm64 + x86_64 pair) instead of the single x86_64-under-Rosetta bundle, then
+# drop this pin.
 WHEEL_ABS="$(cd "$(dirname "$WHEEL_PATH")" && pwd)/$(basename "$WHEEL_PATH")"
 echo "==> Installing placebot[gui] from $WHEEL_ABS"
 "$PY" -m pip install --upgrade pip
-"$PY" -m pip install "placebot[gui] @ file://$WHEEL_ABS"
+"$PY" -m pip install "placebot[gui] @ file://$WHEEL_ABS" "cryptography<49"
 "$PY" -c "import placebot, streamlit; print('placebot', placebot.__version__, '/ streamlit', streamlit.__version__)"
 
 # 3. App launcher + Info.plist (with version substituted).
