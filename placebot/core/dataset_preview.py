@@ -9,6 +9,8 @@ Shows sample data and statistics before processing.
 from typing import Dict, List, Any
 import random
 
+from .field_mapping import has_locality_column
+
 
 class DatasetPreview:
     """Generates previews and statistics for datasets."""
@@ -62,8 +64,12 @@ class DatasetPreview:
         has_lon = any('lon' in f for f in lowered_fields)
         has_coordinates = has_lat and has_lon
 
-        # Check for locality field (native names + Darwin Core verbatimLocality)
-        locality_fields = [f for f in all_fields if 'locality' in f.lower() or 'location' in f.lower()]
+        # Check for locality field (native names, historical label_verbatim,
+        # and Darwin Core verbatimLocality).
+        locality_fields = [
+            f for f in all_fields
+            if has_locality_column([f])
+        ]
         has_locality = len(locality_fields) > 0
         
         # Sample locality text length

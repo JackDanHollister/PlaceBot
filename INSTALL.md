@@ -37,9 +37,9 @@ pip install -e ".[gui,local]"
 **Option B — One-click installers and PyPI**
 
 The repository includes release tooling for Windows/macOS installers and PyPI
-publishing, but the current public GitHub releases do not have installer assets
-attached and the `placebot` package is not currently published on PyPI. Use
-Option A until a full release with public assets/package publishing is cut.
+publishing. Tagged GitHub releases may have unsigned installer assets attached;
+PyPI publishing is configured through Trusted Publishing, but use Option A until
+the first public PyPI release is confirmed.
 
 When installer assets are published, they are expected to be named
 `PlaceBot-Setup-<version>.exe` for Windows and `PlaceBot-<version>.dmg` for
@@ -101,14 +101,14 @@ placebot
 # When prompted:
 # 1. Choose "Real-time" mode
 # 2. Select any available model
-# 3. Use the example file: examples/sample_localities.tsv
+# 3. Use the example file: examples/ai_test.tsv
 # 4. Review cost estimate
 # 5. Confirm processing
 ```
 
 Successful runs write output files and report the processed record count:
 ```
-Processed 10 records
+Processed 4 records
 Results saved to output/
 ```
 

@@ -24,6 +24,14 @@ def test_statistics_handles_none_field_names():
     assert stats["has_data"] is True
 
 
+def test_statistics_detects_historical_label_verbatim():
+    data = [{"Barcode": "1", "label_verbatim": "10 Linden Grove, Rumney"}]
+    stats = DatasetPreview.get_statistics(data)
+
+    assert stats["has_locality"] is True
+    assert stats["locality_fields"] == ["label_verbatim"]
+
+
 def test_get_sample_records_caps_at_dataset_size():
     data = [{"id": i} for i in range(3)]
     assert len(DatasetPreview.get_sample_records(data, 10)) == 3

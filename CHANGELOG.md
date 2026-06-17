@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Paper benchmark supplementary datasets.** Added Bombus and Odonata
+  reference-input TSVs plus archived multi-model comparison outputs under
+  `benchmarks/`, with documentation for reviewer use and reproducibility checks.
+
 ### Changed
+- **Release version guard.** PyPI and installer workflows now fail early if a
+  `v*` release tag does not match the version in `pyproject.toml`, preventing
+  mismatched release assets.
 - **GUI is now a single scrolling page.** The "Process data" page no longer
   steps between separate screens — *1 · Choose your data*, *2 · Choose how to
   process*, and *3 · Processing* now stack on one page and reveal as you go,
@@ -69,6 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   processing settings, running jobs, and collecting results.
 
 ### Fixed
+- **Benchmark locality detection.** The GUI preview now recognises the
+  historical `label_verbatim` locality column used by the supplementary
+  benchmark files.
 - **Repository cleanup for public review.** Removed an obsolete setup script,
   a duplicate logo asset, and an empty example CSV; aligned requirements and
   example benchmark wording with the current package and public README.

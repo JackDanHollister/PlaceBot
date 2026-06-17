@@ -52,6 +52,13 @@ results/
 # Allow example datasets
 !examples/*.tsv
 !examples/*.csv
+# Allow public benchmark supplementary datasets
+!benchmarks/
+!benchmarks/**
+!benchmarks/data/
+!benchmarks/data/*.tsv
+!benchmarks/results/
+!benchmarks/results/*.tsv
 
 # Batch processing
 *.jsonl

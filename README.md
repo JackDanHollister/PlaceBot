@@ -16,6 +16,8 @@ This tool is intended to support digitisation, curation, and research workflows 
 - **Batch Processing**: 50% cost reduction using asynchronous batch APIs
 - **Benchmark Tracking**: Historical test runs record model success rates and
   processing costs for comparison
+- **Supplementary Benchmarks**: Public Bombus and Odonata reference datasets
+  from the paper analyses are included under `benchmarks/`
 - **Privacy Options**: Local models via Ollama for offline processing
 - **Performance Tracking**: Built-in benchmarking and comparison tools
 - **Production Ready**: Tested on 100+ records, scales to thousands
@@ -49,10 +51,11 @@ Then run:
 placebot-gui
 ```
 
-Pre-built Windows/macOS installers and a PyPI package are supported by the
-release tooling, but they are not currently attached/published on the public
-release page. Until a release with assets is cut, use the GitHub/source install
-above.
+Pre-built Windows/macOS installers are built by the release workflow and may be
+attached to tagged GitHub releases. They are unsigned, so first launch can show
+the normal Windows SmartScreen or macOS Gatekeeper warning. PyPI publishing is
+configured through Trusted Publishing, but use the GitHub/source install above
+until the first public PyPI release is confirmed.
 
 ### Graphical interface (easiest)
 
@@ -148,6 +151,22 @@ output terms** in the GUI, or answer yes at the Darwin Core prompt in the CLI.
 PlaceBot's produced columns are then renamed to their closest DwC equivalents
 (e.g. `Latitude` → `decimalLatitude`, `Exact_Site` → `locality`,
 `Coordinate_Radius_Meters` → `coordinateUncertaintyInMeters`) in every export.
+
+## Benchmark Datasets
+
+Supplementary benchmark files for the paper analyses are included in
+[`benchmarks/`](benchmarks/):
+
+| File | Records | Purpose |
+| --- | ---: | --- |
+| `benchmarks/data/bombus_uk_reference.tsv` | 709 | Bombus locality benchmark input with manual reference coordinates. |
+| `benchmarks/data/odonata_global_reference.tsv` | 908 | Odonata locality benchmark input with manual reference coordinates. |
+| `benchmarks/results/bombus_uk_model_comparison.tsv` | 709 | Archived multi-model comparison output for the Bombus benchmark. |
+| `benchmarks/results/odonata_global_model_comparison.tsv` | 908 | Archived multi-model comparison output for the Odonata benchmark. |
+
+Use the files under `benchmarks/data/` to re-run PlaceBot. The files under
+`benchmarks/results/` are paper-era comparison outputs for review and
+reproducibility checks.
 
 ## Model Comparison
 
@@ -279,6 +298,7 @@ let you spread very large jobs across separate Gemini quotas.
 Choose from multiple output formats:
 
 - **CSV**: Standard comma-separated values
+- **TSV**: Tab-separated values, useful for locality text with commas
 - **JSON**: Machine-readable structured data
 - **GeoJSON**: Geographic data format for GIS tools
 
@@ -292,7 +312,7 @@ Example output:
     "longitude": -122.4862
   },
   "confidence": "high",
-  "model_used": "claude-3.5-haiku",
+  "model_used": "claude-haiku-4-5",
   "processing_time": 7.2
 }
 ```
@@ -303,6 +323,7 @@ Example output:
 
 ```
 placebot/
+├── benchmarks/           # Paper benchmark input and comparison data
 ├── placebot/              # Main package
 │   ├── cli/              # Command-line interface
 │   │   ├── main.py       # Main CLI entry point
