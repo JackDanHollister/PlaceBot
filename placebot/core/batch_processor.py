@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Callable, Dict, List, Optional, Any
 
 from .coordinate_utils import preprocess_coordinates
+from .deduplication import deduplicate_records, reconstitute_records
 from .field_mapping import get_ai_locality, get_country, get_identifier, get_locality
 from .ai_processor import AIProcessor
 from .file_manager import DatasetManager, OutputManager
@@ -44,7 +45,8 @@ class BatchProcessor:
     
     def process_dataset(self, dataset_info: Dict[str, Any], model_config: Dict[str, Any],
                        batch_size: int = 8, save_progress: bool = True,
-                       progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
+                       progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+                       deduplicate: bool = False) -> Dict[str, Any]:
         """
         Process an entire dataset using AI enhancement with resume capability.
 
@@ -57,6 +59,10 @@ class BatchProcessor:
                 dict of ``{'processed': int, 'total': int, 'record': dict}``.
                 Used by non-CLI front-ends (e.g. the GUI) to drive a progress
                 bar. Defaults to None so the CLI behaviour is unchanged.
+            deduplicate: When True, collapse repeated locality/country records
+                before processing (so each unique place is georeferenced once)
+                and re-expand the results back onto every original record after
+                processing. Defaults to False so existing behaviour is unchanged.
 
         Returns:
             Processing results and statistics
@@ -82,9 +88,24 @@ class BatchProcessor:
         records = self.dataset_manager.load_dataset(dataset_info)
         if not records:
             return {'success': False, 'error': 'Failed to load dataset'}
-        
+
+        # Optionally collapse repeated locality/country targets so each unique
+        # place is georeferenced once. The full original set is kept so results
+        # can be re-expanded onto every record after processing.
+        original_records = None
+        duplicates_removed = 0
+        if deduplicate:
+            original_records = records
+            records, duplicates_removed = deduplicate_records(records)
+            self.processing_stats['duplicates_removed'] = duplicates_removed
+            self.processing_stats['unique_records'] = len(records)
+            print(
+                f"♻️  Deduplicated {len(original_records):,} → {len(records):,} "
+                f"unique localities ({duplicates_removed:,} duplicate rows collapsed)"
+            )
+
         self.processing_stats['total_records'] = len(records)
-        
+
         # Process only remaining records
         remaining_records = records[start_index:]
         print(f"📊 Processing {len(remaining_records):,} records (starting from index {start_index})")
@@ -160,6 +181,18 @@ class BatchProcessor:
                 print(f"❌ Error processing batch {batch_num}: {e}")
                 continue
         
+        # Re-expand the deduplicated georeference results back onto every original
+        # record, so the saved final file and the returned records are lossless.
+        if deduplicate and original_records is not None:
+            all_processed_records, expand_stats = reconstitute_records(
+                original_records, all_processed_records
+            )
+            self.processing_stats['expanded_records'] = expand_stats['total']
+            print(
+                f"♻️  Re-expanded results onto {expand_stats['total']:,} original "
+                f"records ({expand_stats['matched']:,} matched a georeference)"
+            )
+
         # Save final results
         success = self.output_manager.save_final_results(all_processed_records, output_path)
         

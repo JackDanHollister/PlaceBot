@@ -439,6 +439,21 @@ class UserInterface:
         choice = input("Use Darwin Core output terms? (y/N): ").strip().lower()
         return choice in ('y', 'yes')
 
+    @staticmethod
+    def prompt_deduplicate() -> bool:
+        """Ask whether to deduplicate repeated localities before processing.
+
+        Returns:
+            True if the user wants deduplication enabled (the default).
+        """
+        print("\n♻️  DEDUPLICATION")
+        print("=" * 50)
+        print("Collapse repeated locality/country records before processing?")
+        print("Each unique place is georeferenced once, then the result is")
+        print("re-expanded onto every original record (saves time and cost).")
+        choice = input("Deduplicate repeated localities? (Y/n): ").strip().lower()
+        return choice not in ('n', 'no')
+
 
 if __name__ == "__main__":
     # Test the user interface

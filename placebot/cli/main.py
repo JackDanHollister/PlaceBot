@@ -143,7 +143,12 @@ def run_interactive_mode(args):
     use_dwc = UserInterface.prompt_dwc_output()
     if use_dwc:
         print("✅ Output columns: Darwin Core terms")
-    
+
+    # Ask whether to deduplicate repeated localities before processing
+    use_dedup = UserInterface.prompt_deduplicate()
+    if use_dedup:
+        print("✅ Deduplication: on (results re-expanded after processing)")
+
     # Process based on mode
     print(f"\n🚀 Starting processing...")
     
@@ -174,7 +179,19 @@ def run_interactive_mode(args):
         if processing_mode == 'batch' or processing_mode == 'staggered':
             # Load dataset
             records = dataset_manager.load_dataset(selected_dataset)
-            
+
+            # Optionally collapse repeated locality/country targets before
+            # submission. The job records the choice so the download step can
+            # re-expand results onto every original record.
+            if use_dedup:
+                from placebot.core.deduplication import deduplicate_records
+                original_count = len(records)
+                records, duplicates_removed = deduplicate_records(records)
+                print(
+                    f"♻️  Deduplicated {original_count} → {len(records)} unique "
+                    f"localities ({duplicates_removed} duplicate rows collapsed)"
+                )
+
             if processing_mode == 'staggered':
                 print(f"📊 Loading {len(records)} records for staggered batch processing...")
             else:
@@ -289,7 +306,8 @@ def run_interactive_mode(args):
                             'record_count': end_idx - start_idx,
                             'submitted_at': timestamp,
                             'output_formats': output_formats,
-                            'use_dwc': use_dwc
+                            'use_dwc': use_dwc,
+                            'deduplicated': use_dedup
                         }
                         batch_info_list.append(sub_batch_info)
                         
@@ -325,6 +343,7 @@ def run_interactive_mode(args):
                         'submitted_at': timestamp,
                         'output_formats': output_formats,
                         'use_dwc': use_dwc,
+                        'deduplicated': use_dedup,
                         'batches': batch_info_list
                     }, f, indent=2, ensure_ascii=False)
                 
@@ -374,7 +393,8 @@ def run_interactive_mode(args):
                     'record_count': len(records),
                     'submitted_at': timestamp,
                     'output_formats': output_formats,
-                    'use_dwc': use_dwc
+                    'use_dwc': use_dwc,
+                    'deduplicated': use_dedup
                 }, f, indent=2, ensure_ascii=False)
 
             print(f"\n✅ Batch submitted successfully!")
@@ -402,7 +422,8 @@ def run_interactive_mode(args):
             selected_dataset,
             model_config,
             batch_size=batch_size,
-            save_progress=True
+            save_progress=True,
+            deduplicate=use_dedup
         )
 
         print(f"\n✅ Real-time processing completed!")

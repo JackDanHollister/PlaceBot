@@ -191,6 +191,17 @@ occurrence exports — because columns are resolved through the same field mappi
 described under [Darwin Core support](#darwin-core-support). Output is CSV or TSV
 (by file extension), optionally renamed to Darwin Core terms with `--dwc`.
 
+> **Built in to the GUI and CLI too.** You don't have to run these as separate
+> steps: the interactive `placebot` CLI asks "Deduplicate repeated localities?
+> (Y/n)" and the GUI has a "Deduplicate repeated localities before processing"
+> checkbox — **both on by default**. When enabled, PlaceBot collapses duplicates
+> before processing and re-expands the results onto every original record
+> automatically. The standalone `placebot-prep` / `placebot-expand` commands
+> below are for when you want the prepared file as an explicit artefact (e.g. to
+> review before processing). For **batch/staggered** jobs the re-expansion
+> happens at download time, so keep the source file in `~/.placebot/input/` until
+> you download the results.
+
 ### Prepare: `placebot-prep`
 
 Reads a CSV, TSV, or TXT file and writes the subset of records PlaceBot should

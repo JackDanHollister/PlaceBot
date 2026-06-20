@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Inline deduplication in the GUI and CLI.** The interactive `placebot` CLI now
+  prompts "Deduplicate repeated localities? (Y/n)" and the GUI has a matching
+  checkbox, both **on by default**. When enabled, repeated locality/country
+  records are collapsed before processing and the georeference results are
+  automatically re-expanded onto every original record. For batch/staggered jobs
+  the re-expansion runs at download time by reloading the source file (kept in
+  `~/.placebot/input/`); it falls back to the deduplicated output with a warning
+  if the source file is gone.
 - **Dataset preparation workflow.** Added `placebot-prep`, a command that selects
   records with locality text and missing/invalid decimal coordinates for PlaceBot
   processing. It works on any locality-bearing dataset — native PlaceBot, Darwin
