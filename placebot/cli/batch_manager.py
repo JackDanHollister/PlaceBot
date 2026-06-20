@@ -56,6 +56,22 @@ def _load_source_records(dataset_filename):
     return index
 
 
+def _load_source_record_list(dataset_filename):
+    """Load the original dataset as an ordered list (if still present), so
+    deduplicated batch results can be re-expanded onto every original record."""
+    if not dataset_filename:
+        return []
+    try:
+        dm = DatasetManager(input_folder=str(get_input_dir()),
+                            output_folder=str(get_output_dir()))
+        for ds in dm.discover_datasets():
+            if ds['filename'] == dataset_filename:
+                return dm.load_dataset(ds)
+    except Exception as e:
+        print(f"   ⚠️  Could not load source dataset for re-expansion: {e}")
+    return []
+
+
 def _results_to_records(results, source_index):
     """Map raw batch results into the standard output schema, merging the
     original dataset columns where available. Every result yields one record."""
@@ -245,6 +261,22 @@ def download_job(batch_id, batch_dir=None):
         # Map results into the standard schema, merging original dataset columns
         source_index = _load_source_records(job_info.get('dataset'))
         records = _results_to_records(results, source_index)
+
+        # If the job was deduplicated at submission, re-expand the results onto
+        # every original record by reloading the source file (joined on the
+        # deterministic locality+country key). Falls back to the deduplicated
+        # output if the original file is no longer available.
+        if job_info.get('deduplicated'):
+            from placebot.core.deduplication import reconstitute_records
+            original_records = _load_source_record_list(job_info.get('dataset'))
+            if original_records:
+                records, expand_stats = reconstitute_records(original_records, records)
+                print(
+                    f"♻️  Re-expanded onto {expand_stats['total']} original records "
+                    f"({expand_stats['matched']} matched a georeference)"
+                )
+            else:
+                print("   ⚠️  Original input file not found; leaving results deduplicated.")
 
         # Honour the output formats chosen at submission time (default to CSV)
         formats = job_info.get('output_formats') or ['csv']

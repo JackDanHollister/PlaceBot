@@ -914,6 +914,15 @@ def _render_configure_section():
             "e.g. Latitude → decimalLatitude, Exact_Site → locality."
         ),
     )
+    deduplicate = st.checkbox(
+        "Deduplicate repeated localities before processing",
+        value=st.session_state.get("deduplicate", True),
+        help=(
+            "Georeference each unique locality/country once instead of every "
+            "duplicate (saves time and cost). Results are automatically "
+            "re-expanded onto every original record."
+        ),
+    )
 
     # --- Real-time batch size ---
     batch_size = 8
@@ -933,6 +942,7 @@ def _render_configure_section():
         st.session_state.model_file = model_file
         st.session_state.formats = formats or ["csv"]
         st.session_state.use_dwc = bool(use_dwc)
+        st.session_state.deduplicate = bool(deduplicate)
         st.session_state.batch_size = int(batch_size)
         st.session_state.processing_requested = True
         st.session_state.pop("run_results", None)
@@ -1005,6 +1015,7 @@ def _run_realtime(dataset_manager, selected, model_config):
                 batch_size=st.session_state.batch_size,
                 save_progress=True,
                 progress_callback=cb,
+                deduplicate=st.session_state.get("deduplicate", True),
             )
         except Exception as e:
             st.error(f"Processing failed: {e}")
@@ -1057,6 +1068,16 @@ def _run_batch(selected, model_config):
         return
 
     records = st.session_state.dataset_records
+    deduplicate = st.session_state.get("deduplicate", True)
+    if deduplicate:
+        from placebot.core.deduplication import deduplicate_records
+        original_count = len(records)
+        records, duplicates_removed = deduplicate_records(records)
+        st.info(
+            f"Deduplicated {original_count:,} → {len(records):,} unique localities "
+            f"({duplicates_removed:,} duplicate rows collapsed). Results will be "
+            "re-expanded onto every original record when you download them."
+        )
     prompt_template = AIProcessor(model_config)._get_full_instructions()
 
     batch_dir = os.path.join(str(get_output_dir()), "batch_jobs")
@@ -1089,6 +1110,7 @@ def _run_batch(selected, model_config):
         "submitted_at": timestamp,
         "output_formats": st.session_state.formats,
         "use_dwc": st.session_state.get("use_dwc", False),
+        "deduplicated": deduplicate,
     }
     info_file = os.path.join(batch_dir, f"{batch_name}_info.json")
     with open(info_file, "w", encoding="utf-8") as f:
@@ -1153,6 +1175,16 @@ def _run_staggered(selected, model_config):
     batch_size, delay_seconds = profile
 
     records = st.session_state.dataset_records
+    deduplicate = st.session_state.get("deduplicate", True)
+    if deduplicate:
+        from placebot.core.deduplication import deduplicate_records
+        original_count = len(records)
+        records, duplicates_removed = deduplicate_records(records)
+        st.info(
+            f"Deduplicated {original_count:,} → {len(records):,} unique localities "
+            f"({duplicates_removed:,} duplicate rows collapsed). Results will be "
+            "re-expanded onto every original record when you download them."
+        )
     prompt_template = AIProcessor(model_config)._get_full_instructions()
     total_records = len(records)
     num_batches = (total_records + batch_size - 1) // batch_size
@@ -1213,6 +1245,7 @@ def _run_staggered(selected, model_config):
             "submitted_at": timestamp,
             "output_formats": output_formats,
             "use_dwc": st.session_state.get("use_dwc", False),
+            "deduplicated": deduplicate,
         }
         batch_info_list.append(sub_info)
         with open(
@@ -1242,6 +1275,7 @@ def _run_staggered(selected, model_config):
         "submitted_at": timestamp,
         "output_formats": output_formats,
         "use_dwc": st.session_state.get("use_dwc", False),
+        "deduplicated": deduplicate,
         "batches": batch_info_list,
     }
     summary_file = os.path.join(batch_dir, f"{batch_name}_staggered_summary.json")
@@ -1385,6 +1419,8 @@ def _list_batch_jobs():
                     "submitted_at": data.get("submitted_at", ""),
                     "output_formats": data.get("output_formats", ["csv"]),
                     "use_dwc": data.get("use_dwc", False),
+                    "dataset": data.get("dataset", ""),
+                    "deduplicated": data.get("deduplicated", False),
                     "batches_submitted": data.get(
                         "batches_submitted", len(data.get("batches", []))
                     ),
@@ -1463,6 +1499,26 @@ def step_batch_downloads():
     formats = job.get("output_formats") or ["csv"]
     use_dwc = bool(job.get("use_dwc", False))
     stem = job["label"] + ("_merged" if job["type"] == "staggered" else "")
+
+    # If the job was deduplicated at submission, re-expand the results onto every
+    # original record by reloading the source file (joined on locality+country).
+    if job.get("deduplicated"):
+        from placebot.cli.batch_manager import _load_source_record_list
+        from placebot.core.deduplication import reconstitute_records
+
+        original_records = _load_source_record_list(job.get("dataset"))
+        if original_records:
+            records, expand_stats = reconstitute_records(original_records, records)
+            st.caption(
+                f"Re-expanded onto {expand_stats['total']:,} original records "
+                f"({expand_stats['matched']:,} matched a georeference)."
+            )
+        else:
+            st.warning(
+                "This job was deduplicated, but the original input file is no "
+                "longer in your input folder, so results stay deduplicated. "
+                "Re-add the source file and download again to re-expand."
+            )
 
     if job["type"] == "staggered":
         expected = result.get("expected", 0)
