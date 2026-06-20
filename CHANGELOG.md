@@ -21,11 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   candidate georeference.
 - **Shared dedup module.** Added `placebot/core/deduplication.py` housing the
   dataset-agnostic dedup/reconstitution logic used by the prep/expand commands.
-- **GBIF/Darwin Core guide.** Added `GBIF_CHALLENGE.md` and a tiny synthetic
-  GBIF/Darwin Core-shaped example file for local dry runs.
+- **Prep/expand documentation.** Documented the dedup/reconstitution workflow in
+  the README, noting it works across native PlaceBot, Darwin Core, and GBIF
+  inputs, and added a tiny synthetic GBIF/Darwin Core-shaped example file for
+  local dry runs.
 - **Real GBIF smoke-test data.** Added a small CC0 GBIF occurrence API sample
-  for testing the prep/expand workflow with GBIF-mediated records before creating
-  a DOI-backed GBIF download for submission.
+  for testing the prep/expand workflow with real GBIF-format records.
 - **Paper benchmark supplementary datasets.** Added Bombus and Odonata
   reference-input TSVs plus archived multi-model comparison outputs under
   `benchmarks/`, with documentation for reviewer use and reproducibility checks.

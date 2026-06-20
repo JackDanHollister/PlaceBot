@@ -18,7 +18,6 @@ Selection criteria:
 
 The sample is intended for testing the prep/expand workflow with
 `placebot-prep`. It is not a formal GBIF download and does not have a GBIF
-DOI. For the final Ebbe Nielsen Challenge submission, create a proper GBIF
-download and cite its DOI.
+DOI. For production use, create a proper GBIF download and cite its DOI.
 
 Each row includes `gbifApiUrl` so records can be inspected through the GBIF API.
