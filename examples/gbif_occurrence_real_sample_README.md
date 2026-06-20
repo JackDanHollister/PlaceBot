@@ -16,8 +16,8 @@ Selection criteria:
 - `license=CC0_1_0`
 - records retained locally only when `locality` or `verbatimLocality` was present
 
-The sample is intended for testing the GBIF challenge workflow and
-`placebot-gbif-prep`. It is not a formal GBIF download and does not have a GBIF
+The sample is intended for testing the prep/expand workflow with
+`placebot-prep`. It is not a formal GBIF download and does not have a GBIF
 DOI. For the final Ebbe Nielsen Challenge submission, create a proper GBIF
 download and cite its DOI.
 

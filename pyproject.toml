@@ -55,8 +55,8 @@ placebot = "placebot.cli.main:main"
 pb = "placebot.cli.main:main"
 placebot-batch = "placebot.cli.batch_manager:main"
 placebot-ensemble = "placebot.cli.ensemble:main"
-placebot-gbif-prep = "placebot.cli.gbif:main"
-placebot-gbif-expand = "placebot.cli.gbif:expand_main"
+placebot-prep = "placebot.cli.prep:main"
+placebot-expand = "placebot.cli.prep:expand_main"
 placebot-gui = "placebot.gui.launcher:main"
 
 [project.urls]

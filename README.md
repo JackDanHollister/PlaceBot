@@ -4,8 +4,10 @@
 
 # PlaceBot - Multi-Vendor AI Locality Processor
 
-> GBIF challenge branch: this version adds a Darwin Core/GBIF preparation
-> command and submission notes. See [`GBIF_CHALLENGE.md`](GBIF_CHALLENGE.md).
+> Built-in dataset prep workflow: `placebot-prep` / `placebot-expand` deduplicate
+> repeated localities before processing and re-expand the results afterwards, for
+> any native PlaceBot, Darwin Core, or GBIF file. For GBIF/Darwin Core usage and
+> submission notes, see [`GBIF_CHALLENGE.md`](GBIF_CHALLENGE.md).
 
 PlaceBot is a lightweight tool designed to convert verbatim locality descriptions, such as those found on natural history specimen labels, into standardised geographic coordinates (latitude and longitude). It uses modern natural language processing (NLP) and large language model (LLM) techniques to interpret descriptive place names, estimate coordinates, convert grid references, and assess confidence levels.
 
@@ -21,8 +23,10 @@ This tool is intended to support digitisation, curation, and research workflows 
   processing costs for comparison
 - **Supplementary Benchmarks**: Public Bombus and Odonata reference datasets
   from the paper analyses are included under `benchmarks/`
-- **GBIF/DwC Preparation**: `placebot-gbif-prep` filters GBIF or Darwin Core
-  occurrence downloads to records that need candidate georeferences
+- **Dataset Prep & Reconstitution**: `placebot-prep` filters any dataset (native
+  PlaceBot, Darwin Core, or GBIF) to records needing georeferences and
+  deduplicates repeated localities; `placebot-expand` re-attaches results to
+  every original record
 - **Privacy Options**: Local models via Ollama for offline processing
 - **Performance Tracking**: Built-in benchmarking and comparison tools
 - **Production Ready**: Tested on 100+ records, scales to thousands
@@ -97,11 +101,20 @@ placebot
 pb
 ```
 
-For GBIF/Darwin Core occurrence downloads, prepare candidate records first:
+To deduplicate repeated localities before processing (any dataset — native,
+Darwin Core, or GBIF), prepare candidate records first:
 
 ```bash
-placebot-gbif-prep path/to/gbif_occurrence.csv \
-  --output ~/.placebot/input/gbif_placebot_candidates.tsv
+placebot-prep path/to/occurrences.csv \
+  --output ~/.placebot/input/placebot_candidates.tsv
+```
+
+After processing, re-attach the results to every original record:
+
+```bash
+placebot-expand --original path/to/occurrences.csv \
+  --processed path/to/placebot_results.tsv \
+  --output ~/.placebot/output/georeferenced.csv
 ```
 
 The CLI will guide you through:
@@ -336,11 +349,11 @@ Example output:
 ```
 placebot/
 ├── benchmarks/           # Paper benchmark input and comparison data
-├── GBIF_CHALLENGE.md     # GBIF challenge workflow and submission framing
+├── GBIF_CHALLENGE.md     # GBIF/Darwin Core workflow guide and submission notes
 ├── placebot/              # Main package
 │   ├── cli/              # Command-line interface
 │   │   ├── main.py       # Main CLI entry point
-│   │   ├── gbif.py       # GBIF/Darwin Core preparation workflow
+│   │   ├── prep.py       # Dataset prep & reconstitution (dedup/expand)
 │   │   ├── batch_manager.py  # Batch processing manager
 │   │   └── user_interface.py # Interactive prompts
 │   ├── core/             # Core processing modules
@@ -349,6 +362,7 @@ placebot/
 │   │   ├── async_batch_processor.py  # Advanced batch logic
 │   │   ├── config.py            # API key management
 │   │   ├── cost_estimator.py    # Cost calculations
+│   │   ├── deduplication.py     # Locality dedup & reconstitution
 │   │   ├── dataset_preview.py   # Data preview
 │   │   ├── model_comparison.py  # Model comparison
 │   │   ├── output_formatter.py  # Export formats

@@ -1,9 +1,14 @@
-# PlaceBot GBIF Challenge Version
+# PlaceBot for GBIF / Darwin Core
 
-This branch packages PlaceBot as a GBIF/Darwin Core georeferencing workflow for
+PlaceBot includes a built-in GBIF/Darwin Core georeferencing workflow. This
+guide covers using it to improve biodiversity occurrence data — for example, for
 the 2026 Ebbe Nielsen Challenge.
 
-## Challenge Pitch
+> The `placebot-prep` and `placebot-expand` commands described here are not
+> GBIF-specific: they work on any locality-bearing dataset (native PlaceBot,
+> Darwin Core, or GBIF). This guide frames them around GBIF occurrence data.
+
+## What It Does
 
 PlaceBot helps improve biodiversity occurrence data quality by selecting GBIF or
 Darwin Core occurrence records that have usable locality text but missing or
@@ -33,7 +38,7 @@ that data publishers can review before republishing improved occurrence data.
 3. Prepare a PlaceBot candidate file:
 
 ```bash
-placebot-gbif-prep path/to/gbif_occurrence.csv \
+placebot-prep path/to/gbif_occurrence.csv \
   --output ~/.placebot/input/gbif_placebot_candidates.tsv
 ```
 
@@ -53,7 +58,7 @@ placebot-gui
    is georeferenced once and then re-expanded):
 
 ```bash
-placebot-gbif-expand \
+placebot-expand \
   --original path/to/gbif_occurrence.csv \
   --processed path/to/placebot_results.tsv \
   --output ~/.placebot/output/gbif_georeferenced.csv
@@ -62,14 +67,14 @@ placebot-gbif-expand \
 For a small local dry run of the preparation step:
 
 ```bash
-placebot-gbif-prep examples/gbif_occurrence_sample.csv \
+placebot-prep examples/gbif_occurrence_sample.csv \
   --output /tmp/gbif_placebot_candidates.tsv
 ```
 
 For a real-data smoke test from GBIF-mediated records:
 
 ```bash
-placebot-gbif-prep examples/gbif_occurrence_real_sample.csv \
+placebot-prep examples/gbif_occurrence_real_sample.csv \
   --output /tmp/gbif_real_placebot_candidates.tsv
 ```
 
@@ -79,9 +84,9 @@ placebot-gbif-prep examples/gbif_occurrence_real_sample.csv \
 `examples/gbif_occurrence_real_sample_README.md` for the exact source query and
 limitations.
 
-## New Command
+## The Preparation Command
 
-`placebot-gbif-prep` reads CSV, TSV, or TXT files and writes the subset of
+`placebot-prep` reads CSV, TSV, or TXT files and writes the subset of
 records that PlaceBot should georeference. By default, it deduplicates repeated
 locality/country targets so PlaceBot georeferences each unique place string only
 once. The output keeps `placebotOccurrenceIDs`, `placebotOccurrenceCount`, and
@@ -98,18 +103,18 @@ Useful options:
 
 ```bash
 # Include already-coordinate records too, useful for audit or benchmarking
-placebot-gbif-prep occurrences.csv --include-existing
+placebot-prep occurrences.csv --include-existing
 
 # Create a small demo file from a large GBIF download
-placebot-gbif-prep occurrences.csv --max-records 50
+placebot-prep occurrences.csv --max-records 50
 
 # Keep every occurrence row, even when locality/country strings repeat
-placebot-gbif-prep occurrences.csv --no-deduplicate
+placebot-prep occurrences.csv --no-deduplicate
 ```
 
 ## Reconstituting Results
 
-`placebot-gbif-expand` reverses the deduplication after PlaceBot has
+`placebot-expand` reverses the deduplication after PlaceBot has
 georeferenced the candidate file. It joins the full original occurrence file
 against PlaceBot's results on the same locality/country key used to collapse
 them, then copies the georeference columns (`Latitude`, `Longitude`,
@@ -118,13 +123,13 @@ resolved place hierarchy) onto **every** original occurrence — so each of the
 duplicates that shared a locality receives the same candidate georeference.
 
 ```bash
-placebot-gbif-expand \
+placebot-expand \
   --original path/to/gbif_occurrence.csv \
   --processed path/to/placebot_results.tsv \
   --output path/to/gbif_georeferenced.csv
 
 # Rename produced columns to Darwin Core terms in the output
-placebot-gbif-expand --original occurrences.csv --processed results.tsv --dwc
+placebot-expand --original occurrences.csv --processed results.tsv --dwc
 ```
 
 The join uses locality plus country, so it works even if the

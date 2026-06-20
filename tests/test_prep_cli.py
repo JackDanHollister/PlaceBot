@@ -1,18 +1,20 @@
-"""Tests for the GBIF/Darwin Core preparation workflow."""
+"""Tests for the dataset preparation & reconstitution workflow."""
 
 import csv
 from pathlib import Path
 
-from placebot.cli.gbif import (
+from placebot.cli.prep import (
+    expand_run,
+    read_records,
+    run,
+)
+from placebot.core.deduplication import (
     dedup_key,
     deduplicate_records,
-    expand_run,
     filter_records,
     has_valid_decimal_coordinates,
     needs_placebot_georeferencing,
-    read_records,
     reconstitute_records,
-    run,
 )
 
 
@@ -265,3 +267,64 @@ def test_prep_then_expand_round_trip(tmp_path):
     assert [row["occurrenceID"] for row in rows] == ["occ-1", "occ-2", "occ-3"]
     assert all(row["Latitude"] == "1.0" for row in rows)
     assert "Latitude" in fieldnames
+
+
+def test_native_non_gbif_dataset_round_trip(tmp_path):
+    """The same prep/expand path works on native PlaceBot columns, not just GBIF.
+
+    Uses ``Barcode`` / ``Locality verbatim`` / ``Country`` (no Darwin Core or
+    GBIF columns) to prove the workflow is dataset-agnostic.
+    """
+    original = [
+        {"Barcode": "BM-1", "Locality verbatim": "Monks Wood", "Country": "United Kingdom"},
+        {"Barcode": "BM-2", "Locality verbatim": "Monks Wood", "Country": "United Kingdom"},
+        {"Barcode": "BM-3", "Locality verbatim": "Edinburgh", "Country": "United Kingdom"},
+    ]
+    original_path = tmp_path / "native.tsv"
+    with original_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(original[0].keys()), delimiter="\t")
+        writer.writeheader()
+        writer.writerows(original)
+
+    # Dedup keys are built from the native locality + country columns.
+    assert dedup_key(original[0]) == dedup_key(original[1])
+    assert dedup_key(original[0]) != dedup_key(original[2])
+
+    # Prep collapses the two Monks Wood rows; Barcode is tracked as the identifier.
+    candidates, stats = filter_records(original)
+    assert len(candidates) == 2
+    assert stats["duplicates_removed"] == 1
+    monks = next(c for c in candidates if normalise_locality(c) == "monks wood")
+    assert monks["placebotOccurrenceIDs"] == "BM-1|BM-2"
+
+    # Simulate PlaceBot georeferencing each unique candidate.
+    processed = []
+    for record in candidates:
+        result = dict(record)
+        result["Latitude"] = "1.0"
+        result["Longitude"] = "2.0"
+        processed.append(result)
+    processed_path = tmp_path / "processed.tsv"
+    with processed_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(processed[0].keys()), delimiter="\t")
+        writer.writeheader()
+        writer.writerows(processed)
+
+    output_path = tmp_path / "final.tsv"
+
+    class Args:
+        original = str(original_path)
+        processed = str(processed_path)
+        output = str(output_path)
+        dwc = False
+
+    assert expand_run(Args) == 0
+    rows, _fieldnames, _delimiter = read_records(output_path)
+
+    # Every original Barcode reappears, each carrying the shared coordinates.
+    assert [row["Barcode"] for row in rows] == ["BM-1", "BM-2", "BM-3"]
+    assert all(row["Latitude"] == "1.0" for row in rows)
+
+
+def normalise_locality(record):
+    return record.get("Locality verbatim", "").strip().lower()
