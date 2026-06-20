@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "placebot"
-version = "1.4.2"
+version = "1.5.0"
 description = "PlaceBot: Multi-vendor AI locality processor for extracting geographic coordinates from locality descriptions"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -55,6 +55,8 @@ placebot = "placebot.cli.main:main"
 pb = "placebot.cli.main:main"
 placebot-batch = "placebot.cli.batch_manager:main"
 placebot-ensemble = "placebot.cli.ensemble:main"
+placebot-prep = "placebot.cli.prep:main"
+placebot-expand = "placebot.cli.prep:expand_main"
 placebot-gui = "placebot.gui.launcher:main"
 
 [project.urls]

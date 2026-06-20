@@ -4,6 +4,11 @@
 
 # PlaceBot - Multi-Vendor AI Locality Processor
 
+> PlaceBot can deduplicate repeated localities before processing and re-attach
+> the results to every original record afterwards, for any native PlaceBot,
+> Darwin Core, or GBIF file. See
+> [Deduplication & Reconstitution](#deduplication--reconstitution).
+
 PlaceBot is a lightweight tool designed to convert verbatim locality descriptions, such as those found on natural history specimen labels, into standardised geographic coordinates (latitude and longitude). It uses modern natural language processing (NLP) and large language model (LLM) techniques to interpret descriptive place names, estimate coordinates, convert grid references, and assess confidence levels.
 
 This tool is intended to support digitisation, curation, and research workflows by automating a key step in georeferencing legacy specimen data.
@@ -18,6 +23,10 @@ This tool is intended to support digitisation, curation, and research workflows 
   processing costs for comparison
 - **Supplementary Benchmarks**: Public Bombus and Odonata reference datasets
   from the paper analyses are included under `benchmarks/`
+- **Dataset Prep & Reconstitution**: `placebot-prep` filters any dataset (native
+  PlaceBot, Darwin Core, or GBIF) to records needing georeferences and
+  deduplicates repeated localities; `placebot-expand` re-attaches results to
+  every original record
 - **Privacy Options**: Local models via Ollama for offline processing
 - **Performance Tracking**: Built-in benchmarking and comparison tools
 - **Production Ready**: Tested on 100+ records, scales to thousands
@@ -92,6 +101,22 @@ placebot
 pb
 ```
 
+To deduplicate repeated localities before processing (any dataset — native,
+Darwin Core, or GBIF), prepare candidate records first:
+
+```bash
+placebot-prep path/to/occurrences.csv \
+  --output ~/.placebot/input/placebot_candidates.tsv
+```
+
+After processing, re-attach the results to every original record:
+
+```bash
+placebot-expand --original path/to/occurrences.csv \
+  --processed path/to/placebot_results.tsv \
+  --output ~/.placebot/output/georeferenced.csv
+```
+
 The CLI will guide you through:
 1. Selecting processing mode (real-time or batch)
 2. Choosing your AI model
@@ -151,6 +176,80 @@ output terms** in the GUI, or answer yes at the Darwin Core prompt in the CLI.
 PlaceBot's produced columns are then renamed to their closest DwC equivalents
 (e.g. `Latitude` → `decimalLatitude`, `Exact_Site` → `locality`,
 `Coordinate_Radius_Meters` → `coordinateUncertaintyInMeters`) in every export.
+
+## Deduplication & Reconstitution
+
+Large occurrence/specimen exports often repeat the same locality many times.
+`placebot-prep` and `placebot-expand` let you georeference each unique place
+**once** and then re-attach the result to every original record, so you only pay
+for (and review) one candidate per distinct locality.
+
+Both commands work on **any locality-bearing CSV/TSV** — native PlaceBot
+(`Barcode` / `Locality verbatim` / `Country`), Darwin Core
+(`occurrenceID` / `verbatimLocality` / `country` / `decimalLatitude`…), and GBIF
+occurrence exports — because columns are resolved through the same field mapping
+described under [Darwin Core support](#darwin-core-support). Output is CSV or TSV
+(by file extension), optionally renamed to Darwin Core terms with `--dwc`.
+
+### Prepare: `placebot-prep`
+
+Reads a CSV, TSV, or TXT file and writes the subset of records PlaceBot should
+georeference: those with locality text and missing or invalid decimal
+coordinates. By default it deduplicates repeated locality/country targets so each
+unique place string is processed only once. The output keeps
+`placebotOccurrenceIDs`, `placebotOccurrenceCount`, and `placebotDedupKey`
+columns so a candidate georeference can be traced back to every original record
+that shared that text.
+
+```bash
+# Default: filter + deduplicate
+placebot-prep path/to/occurrences.csv \
+  --output ~/.placebot/input/placebot_candidates.tsv
+
+# Include records that already have valid coordinates (audit / benchmarking)
+placebot-prep occurrences.csv --include-existing
+
+# Cap the number of selected records, useful for a small demo file
+placebot-prep occurrences.csv --max-records 50
+
+# Keep every record, even when locality/country strings repeat
+placebot-prep occurrences.csv --no-deduplicate
+```
+
+### Reconstitute: `placebot-expand`
+
+After PlaceBot processes the candidate file, `placebot-expand` reverses the
+deduplication. It joins the full original file against PlaceBot's results on the
+same locality + country key used to collapse them, then copies the georeference
+columns (`Latitude`, `Longitude`, `Coordinate_Radius_Meters`, `Confidence`,
+georeferencing remarks, and the resolved place hierarchy) onto **every** original
+record — so each record that shared a locality receives the same candidate
+georeference.
+
+```bash
+placebot-expand \
+  --original path/to/occurrences.csv \
+  --processed path/to/placebot_results.tsv \
+  --output ~/.placebot/output/georeferenced.csv
+
+# Rename produced columns to Darwin Core terms in the output
+placebot-expand --original occurrences.csv --processed results.tsv --dwc
+```
+
+The join uses locality plus country, so it works even if the tracking columns
+were dropped during processing; those columns remain useful as an audit trail of
+which records shared a target.
+
+### Try it on the example data
+
+```bash
+# GBIF-format sample
+placebot-prep examples/gbif_occurrence_sample.csv -o /tmp/candidates.tsv
+
+# Native PlaceBot and Darwin Core samples work the same way
+placebot-prep examples/ai_test.tsv  -o /tmp/native_candidates.tsv
+placebot-prep examples/dwc_test.csv -o /tmp/dwc_candidates.tsv
+```
 
 ## Benchmark Datasets
 
@@ -327,6 +426,7 @@ placebot/
 ├── placebot/              # Main package
 │   ├── cli/              # Command-line interface
 │   │   ├── main.py       # Main CLI entry point
+│   │   ├── prep.py       # Dataset prep & reconstitution (dedup/expand)
 │   │   ├── batch_manager.py  # Batch processing manager
 │   │   └── user_interface.py # Interactive prompts
 │   ├── core/             # Core processing modules
@@ -335,6 +435,7 @@ placebot/
 │   │   ├── async_batch_processor.py  # Advanced batch logic
 │   │   ├── config.py            # API key management
 │   │   ├── cost_estimator.py    # Cost calculations
+│   │   ├── deduplication.py     # Locality dedup & reconstitution
 │   │   ├── dataset_preview.py   # Data preview
 │   │   ├── model_comparison.py  # Model comparison
 │   │   ├── output_formatter.py  # Export formats

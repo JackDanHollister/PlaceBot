@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Dataset preparation workflow.** Added `placebot-prep`, a command that selects
+  records with locality text and missing/invalid decimal coordinates for PlaceBot
+  processing. It works on any locality-bearing dataset — native PlaceBot, Darwin
+  Core, or GBIF — because columns are resolved through `field_mapping`.
+- **Locality deduplication.** `placebot-prep` collapses repeated locality/country
+  targets by default and preserves all source record IDs in
+  `placebotOccurrenceIDs`, so each unique place is georeferenced only once.
+- **Result reconstitution.** Added `placebot-expand`, which joins PlaceBot's
+  georeference results back onto every original record (reversing the
+  deduplication) so each duplicate that shared a locality receives the same
+  candidate georeference.
+- **Shared dedup module.** Added `placebot/core/deduplication.py` housing the
+  dataset-agnostic dedup/reconstitution logic used by the prep/expand commands.
+- **Prep/expand documentation.** Documented the dedup/reconstitution workflow in
+  the README, noting it works across native PlaceBot, Darwin Core, and GBIF
+  inputs, and added a tiny synthetic GBIF/Darwin Core-shaped example file for
+  local dry runs.
+- **Real GBIF smoke-test data.** Added a small CC0 GBIF occurrence API sample
+  for testing the prep/expand workflow with real GBIF-format records.
 - **Paper benchmark supplementary datasets.** Added Bombus and Odonata
   reference-input TSVs plus archived multi-model comparison outputs under
   `benchmarks/`, with documentation for reviewer use and reproducibility checks.
