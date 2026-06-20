@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **GBIF challenge workflow.** Added `placebot-gbif-prep`, a Darwin Core/GBIF
+  occurrence preparation command that selects records with locality text and
+  missing/invalid decimal coordinates for PlaceBot processing.
+- **GBIF preparation deduplication.** `placebot-gbif-prep` now collapses
+  repeated locality/country targets by default and preserves all source
+  occurrence IDs in `placebotOccurrenceIDs`.
+- **GBIF result reconstitution.** Added `placebot-gbif-expand`, which joins
+  PlaceBot's georeference results back onto every original occurrence (reversing
+  the deduplication) so each duplicate that shared a locality receives the same
+  candidate georeference.
+- **GBIF challenge documentation.** Added `GBIF_CHALLENGE.md` and a tiny
+  synthetic GBIF/Darwin Core-shaped example file for local dry runs.
+- **Real GBIF smoke-test data.** Added a small CC0 GBIF occurrence API sample
+  for testing the challenge workflow with GBIF-mediated records before creating
+  a DOI-backed GBIF download for submission.
 - **Paper benchmark supplementary datasets.** Added Bombus and Odonata
   reference-input TSVs plus archived multi-model comparison outputs under
   `benchmarks/`, with documentation for reviewer use and reproducibility checks.

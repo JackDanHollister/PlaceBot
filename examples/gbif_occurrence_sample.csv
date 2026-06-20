@@ -1,0 +1,5 @@
+gbifID,occurrenceID,datasetKey,basisOfRecord,scientificName,country,verbatimLocality,decimalLatitude,decimalLongitude,coordinateUncertaintyInMeters
+100000001,gbif-demo-1,demo-dataset-1,PRESERVED_SPECIMEN,Bombus terrestris,United Kingdom,"Monks Wood, Huntingdonshire",,,
+100000002,gbif-demo-2,demo-dataset-1,PRESERVED_SPECIMEN,Sympetrum striolatum,United Kingdom,"Edinburgh, Royal Botanic Garden",55.965,-3.209,1000
+100000003,gbif-demo-3,demo-dataset-1,PRESERVED_SPECIMEN,Apis mellifera,France,"Near Paris, Seine",999,999,
+100000004,gbif-demo-4,demo-dataset-1,PRESERVED_SPECIMEN,Libellula depressa,United Kingdom,,,,
