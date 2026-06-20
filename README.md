@@ -4,11 +4,6 @@
 
 # PlaceBot - Multi-Vendor AI Locality Processor
 
-> PlaceBot can deduplicate repeated localities before processing and re-attach
-> the results to every original record afterwards, for any native PlaceBot,
-> Darwin Core, or GBIF file. See
-> [Deduplication & Reconstitution](#deduplication--reconstitution).
-
 PlaceBot is a lightweight tool designed to convert verbatim locality descriptions, such as those found on natural history specimen labels, into standardised geographic coordinates (latitude and longitude). It uses modern natural language processing (NLP) and large language model (LLM) techniques to interpret descriptive place names, estimate coordinates, convert grid references, and assess confidence levels.
 
 This tool is intended to support digitisation, curation, and research workflows by automating a key step in georeferencing legacy specimen data.
@@ -35,23 +30,8 @@ This tool is intended to support digitisation, curation, and research workflows 
 
 ### Installation
 
-**Current public install route:** install from this GitHub repository with
-Python 3.8+:
-
-```bash
-git clone https://github.com/JackDanHollister/PlaceBot.git
-cd PlaceBot
-
-# Create and activate a virtual environment
-python -m venv .venv
-source .venv/bin/activate        # macOS/Linux
-# .venv\Scripts\activate         # Windows PowerShell
-
-# GUI install
-pip install -e ".[gui]"
-
-# Or include local Ollama support too
-pip install -e ".[gui,local]"
+```
+pip install placebot
 ```
 
 Then run:
@@ -60,11 +40,10 @@ Then run:
 placebot-gui
 ```
 
-Pre-built Windows/macOS installers are built by the release workflow and may be
+Pre-built Windows/macOS installers are built by the release workflow and are
 attached to tagged GitHub releases. They are unsigned, so first launch can show
 the normal Windows SmartScreen or macOS Gatekeeper warning. PyPI publishing is
-configured through Trusted Publishing, but use the GitHub/source install above
-until the first public PyPI release is confirmed.
+configured through Trusted Publishing.
 
 ### Graphical interface (easiest)
 
