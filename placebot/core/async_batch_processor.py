@@ -21,7 +21,13 @@ import anthropic
 
 # New import: coordinate preprocessing utilities
 from .coordinate_utils import preprocess_coordinates, detect_grid_references
-from .field_mapping import get_ai_locality, get_country, get_identifier, get_locality
+from .field_mapping import (
+    get_ai_locality,
+    get_country,
+    get_identifier,
+    get_locality,
+    safe_custom_id,
+)
 
 
 def build_coordinate_context_for_prompt(record: Dict[str, Any]) -> str:
@@ -226,7 +232,7 @@ class AnthropicBatchProcessor:
             coordinate_context = build_coordinate_context_for_prompt(record)
 
             request = {
-                "custom_id": barcode,
+                "custom_id": safe_custom_id(barcode),
                 "params": {
                     "model": self.model_id,
                     "max_tokens": 1000,
@@ -512,7 +518,7 @@ class OpenAIBatchProcessor:
                     body["reasoning_effort"] = "minimal"
 
                 request = {
-                    "custom_id": barcode,
+                    "custom_id": safe_custom_id(barcode),
                     "method": "POST",
                     "url": "/v1/chat/completions",
                     "body": body
@@ -1167,7 +1173,7 @@ class GeminiBatchProcessor:
             coordinate_context = build_coordinate_context_for_prompt(record)
             
             request = {
-                'custom_id': barcode,
+                'custom_id': safe_custom_id(barcode),
                 'contents': [{
                     'parts': [{
                         'text': f"{prompt_template}\n\nLocality: {locality}\nCountry: {country}{coordinate_context}"

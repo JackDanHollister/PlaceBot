@@ -86,18 +86,25 @@ def fetch_staggered_results(summary_file):
         except Exception as e:
             failed.append({**batch_info, "error": str(e)})
 
+    # Map the raw AI output into the canonical schema and merge the original
+    # dataset columns, mirroring the single-batch and CLI download paths.
+    from placebot.cli.batch_manager import _load_source_records, _results_to_records
+
+    source_index = _load_source_records(summary.get("dataset"))
+    records = _results_to_records(all_results, source_index) if all_results else []
+
     merged_file = None
-    if all_results:
+    if records:
         output_dir = str(get_output_dir())
         os.makedirs(output_dir, exist_ok=True)
         base = os.path.basename(summary_file).replace("_staggered_summary.json", "")
         merged_file = os.path.join(output_dir, f"{base}_merged_results.json")
         with open(merged_file, "w", encoding="utf-8") as f:
-            json.dump(all_results, f, indent=2, ensure_ascii=False)
+            json.dump(records, f, indent=2, ensure_ascii=False)
 
     return {
         "success": bool(all_results),
-        "records": all_results,
+        "records": records,
         "merged_file": merged_file,
         "summary": summary,
         "expected": summary.get("total_records", 0),

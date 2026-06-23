@@ -25,6 +25,7 @@ files (progress + resume TSVs) always keep the native names so resume logic is
 unaffected; only the final user-facing exports are renamed.
 """
 
+import hashlib
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -76,6 +77,21 @@ def get_identifier(record: Dict[str, Any], default: str = "Unknown") -> str:
     """Resolve a record identifier (barcode / catalogNumber / occurrenceID...)."""
     value = _first_nonempty(record, IDENTIFIER_FIELDS)
     return str(value).strip() if value is not None else default
+
+
+def safe_custom_id(identifier: Any) -> str:
+    """Batch ``custom_id`` safe for all providers (Anthropic/OpenAI cap at 64 chars).
+
+    Returns the identifier unchanged when it already fits (so existing datasets
+    with short barcodes are byte-for-byte unaffected); otherwise a deterministic
+    short token derived from it. The mapping back to the real identifier is
+    reconstructed at download time from the source dataset (see
+    ``batch_manager._load_source_records``).
+    """
+    text = str(identifier)
+    if len(text) <= 64:
+        return text
+    return "pb_" + hashlib.sha1(text.encode("utf-8")).hexdigest()[:24]
 
 
 def get_existing_coordinates(record: Dict[str, Any]) -> Tuple[Any, Any]:
