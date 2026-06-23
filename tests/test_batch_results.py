@@ -84,19 +84,38 @@ def test_results_to_records_keeps_every_record_and_merges_source():
     assert "failed" in recs[1]["Processing_Notes"].lower()
 
 
-def test_safe_custom_id_passes_short_ids_unchanged():
-    # Short identifiers (incl. URLs/colons within 64 chars) are returned as-is
-    assert safe_custom_id("RMNH.PISC.87661") == "RMNH.PISC.87661"
-    short_url = "https://arctos.database.museum/guid/MSB:Para:52908"
-    assert len(short_url) <= 64
-    assert safe_custom_id(short_url) == short_url
+import re
+
+_CUSTOM_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
+def test_safe_custom_id_passes_charset_clean_ids_unchanged():
+    # Charset-clean ids within 64 chars (UUIDs, hyphenated barcodes) are kept
+    assert safe_custom_id("fc5502f3-7d5f-4208-8ebc-233b0c264d08") == \
+        "fc5502f3-7d5f-4208-8ebc-233b0c264d08"
+    assert safe_custom_id("GB-0408891") == "GB-0408891"
+
+
+def test_safe_custom_id_sanitizes_invalid_charset_even_when_short():
+    # Anthropic requires ^[a-zA-Z0-9_-]{1,64}$ — ':' '/' '.' are rejected,
+    # so these short-but-dirty ids must be hashed, not passed through.
+    for dirty in (
+        "https://arctos.database.museum/guid/MSB:Para:52908",  # 50 chars, ':' '/'
+        "BMO:OHN:320273",                                      # ':'
+        "RMNH.PISC.87661",                                     # '.'
+    ):
+        assert len(dirty) <= 64
+        sid = safe_custom_id(dirty)
+        assert sid != dirty
+        assert sid.startswith("pb_")
+        assert _CUSTOM_ID_PATTERN.fullmatch(sid)
 
 
 def test_safe_custom_id_shortens_overlong_ids_deterministically():
     long_url = "https://data.biodiversitydata.nl/naturalis/specimen/RMNH.PISC.87661"
     assert len(long_url) > 64
     sid = safe_custom_id(long_url)
-    assert len(sid) <= 64
+    assert _CUSTOM_ID_PATTERN.fullmatch(sid)  # valid pattern (length + charset)
     assert sid.startswith("pb_")
     assert sid == safe_custom_id(long_url)  # deterministic
     # distinct inputs map to distinct ids

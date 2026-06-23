@@ -26,6 +26,7 @@ unaffected; only the final user-facing exports are renamed.
 """
 
 import hashlib
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -79,17 +80,25 @@ def get_identifier(record: Dict[str, Any], default: str = "Unknown") -> str:
     return str(value).strip() if value is not None else default
 
 
-def safe_custom_id(identifier: Any) -> str:
-    """Batch ``custom_id`` safe for all providers (Anthropic/OpenAI cap at 64 chars).
+# Anthropic's batch custom_id must match this exactly; OpenAI/Gemini are more
+# lenient, but we hold every provider to it so the reverse map is uniform.
+_CUSTOM_ID_OK = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
-    Returns the identifier unchanged when it already fits (so existing datasets
-    with short barcodes are byte-for-byte unaffected); otherwise a deterministic
-    short token derived from it. The mapping back to the real identifier is
-    reconstructed at download time from the source dataset (see
+
+def safe_custom_id(identifier: Any) -> str:
+    """Batch ``custom_id`` safe for all providers.
+
+    Anthropic requires ``custom_id`` to match ``^[a-zA-Z0-9_-]{1,64}$`` — both a
+    length cap *and* a character-set rule. Returns the identifier unchanged when
+    it already satisfies that (so UUIDs and hyphenated barcodes are unaffected);
+    otherwise a deterministic short token. Values that are too long *or* contain
+    other characters (``:`` ``/`` ``.`` and spaces in GBIF ``occurrenceID`` URLs
+    and dotted catalogue numbers) are hashed. The mapping back to the real
+    identifier is reconstructed at download time from the source dataset (see
     ``batch_manager._load_source_records``).
     """
     text = str(identifier)
-    if len(text) <= 64:
+    if _CUSTOM_ID_OK.fullmatch(text):
         return text
     return "pb_" + hashlib.sha1(text.encode("utf-8")).hexdigest()[:24]
 
