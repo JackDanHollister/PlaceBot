@@ -31,6 +31,7 @@ from placebot.core.async_batch_processor import (
 )
 from placebot.core.async_batch_processor import GeminiBatchProcessor
 from placebot.core.data_dirs import get_batch_jobs_dir, get_input_dir, get_output_dir
+from placebot.core.field_mapping import get_identifier, safe_custom_id
 from placebot.core.file_manager import DatasetManager
 from placebot.core.output_formatter import OutputFormatter
 
@@ -47,9 +48,15 @@ def _load_source_records(dataset_filename):
         for ds in dm.discover_datasets():
             if ds['filename'] == dataset_filename:
                 for rec in dm.load_dataset(ds):
-                    bc = rec.get('Barcode') or rec.get('barcode') or rec.get('ID')
-                    if bc is not None:
+                    # Resolve the identifier from native or Darwin Core columns
+                    # (occurrenceID, catalogNumber, ...), not just a hard-coded
+                    # "Barcode" column, so DwC/GBIF files merge correctly.
+                    bc = get_identifier(rec, default="")
+                    if bc:
                         index[str(bc)] = rec
+                        # Also index under the batch custom_id so results whose
+                        # identifier was shortened (>64 chars) map back here.
+                        index.setdefault(safe_custom_id(bc), rec)
                 break
     except Exception as e:
         print(f"   ⚠️  Could not load source dataset for merge: {e}")
@@ -79,7 +86,9 @@ def _results_to_records(results, source_index):
     for r in results:
         barcode = str(r.get('barcode', ''))
         rec = dict(source_index.get(barcode, {}))
-        rec.setdefault('Barcode', barcode)
+        # When the custom_id was shortened, recover the real identifier from the
+        # merged source columns; otherwise fall back to the custom_id itself.
+        rec.setdefault('Barcode', get_identifier(rec, default=barcode))
         if r.get('success'):
             rec.update({
                 'Country_Processed': r.get('country', ''),

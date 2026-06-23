@@ -9,6 +9,7 @@ from placebot.core.async_batch_processor import (
     _extract_first_json_object,
 )
 from placebot.cli.batch_manager import _results_to_records
+from placebot.core.field_mapping import get_identifier, safe_custom_id
 from placebot.core.output_formatter import OutputFormatter
 
 
@@ -81,6 +82,55 @@ def test_results_to_records_keeps_every_record_and_merges_source():
     assert recs[0]["Latitude"] == 7.9
     assert recs[1]["Confidence"] == "low"
     assert "failed" in recs[1]["Processing_Notes"].lower()
+
+
+def test_safe_custom_id_passes_short_ids_unchanged():
+    # Short identifiers (incl. URLs/colons within 64 chars) are returned as-is
+    assert safe_custom_id("RMNH.PISC.87661") == "RMNH.PISC.87661"
+    short_url = "https://arctos.database.museum/guid/MSB:Para:52908"
+    assert len(short_url) <= 64
+    assert safe_custom_id(short_url) == short_url
+
+
+def test_safe_custom_id_shortens_overlong_ids_deterministically():
+    long_url = "https://data.biodiversitydata.nl/naturalis/specimen/RMNH.PISC.87661"
+    assert len(long_url) > 64
+    sid = safe_custom_id(long_url)
+    assert len(sid) <= 64
+    assert sid.startswith("pb_")
+    assert sid == safe_custom_id(long_url)  # deterministic
+    # distinct inputs map to distinct ids
+    assert sid != safe_custom_id(long_url + "x")
+
+
+def test_results_to_records_resolves_shortened_custom_id_to_real_barcode():
+    # A GBIF-shaped source record carries occurrenceID (no "Barcode" column).
+    occ = "https://data.biodiversitydata.nl/naturalis/specimen/RMNH.PISC.87661"
+    source = {
+        "occurrenceID": occ,
+        "locality": "Wassenaar",
+        "country": "Netherlands",
+        "scientificName": "Hippocampus hippocampus",
+    }
+    # Index keyed the way _load_source_records now builds it: real id + custom_id.
+    source_index = {occ: source, safe_custom_id(occ): source}
+
+    # The batch result comes back keyed by the shortened custom_id.
+    results = [{"barcode": safe_custom_id(occ), "success": True,
+                "country": "Netherlands", "latitude": 52.14, "longitude": 4.33}]
+    recs = _results_to_records(results, source_index)
+
+    assert len(recs) == 1
+    rec = recs[0]
+    assert rec["Barcode"] == occ                 # real identifier recovered
+    assert rec["scientificName"] == "Hippocampus hippocampus"  # source merged
+    assert rec["Latitude"] == 52.14
+
+
+def test_get_identifier_recognises_gbif_occurrence_id():
+    # Confirms _load_source_records can index a GBIF row that lacks a Barcode col
+    rec = {"occurrenceID": "abc", "locality": "X", "country": "Y"}
+    assert get_identifier(rec, default="") == "abc"
 
 
 def test_geojson_accepts_capitalised_coords():

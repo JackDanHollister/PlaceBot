@@ -98,15 +98,24 @@ def fetch_batch_results(batch_id, batch_dir=None):
     if not results:
         return {'success': False, 'error': 'No results available yet (batch may still be processing).', 'info': info}
 
+    # Map the raw AI output into the canonical output schema and merge the
+    # original dataset columns, mirroring the CLI download path. Without this
+    # the saved file keeps lowercase AI keys and the GUI's reconstitution (which
+    # copies capitalised georeference columns) finds nothing to add.
+    from placebot.cli.batch_manager import _load_source_records, _results_to_records
+
+    source_index = _load_source_records(info.get('dataset'))
+    records = _results_to_records(results, source_index)
+
     output_dir = str(get_output_dir())
     os.makedirs(output_dir, exist_ok=True)
     results_file = os.path.join(output_dir, f"{info['batch_name']}_results.json")
     with open(results_file, 'w', encoding='utf-8') as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+        json.dump(records, f, indent=2, ensure_ascii=False)
 
     return {
         'success': True,
-        'records': results,
+        'records': records,
         'results_file': results_file,
         'info': info,
         'error': None,
