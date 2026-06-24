@@ -314,19 +314,20 @@ def _processing_counts(records: list) -> dict:
 # These delegate to OutputFormatter so the GUI's downloads/auto-saves are
 # byte-for-byte identical to the CLI's files: same canonical column order, and
 # a UTF-8 BOM on CSV so Excel renders accents (e.g. "Rhône") correctly.
-def records_to_csv_bytes(records: list, dwc: bool = False) -> bytes:
-    return OutputFormatter.records_to_csv_bytes(records, dwc=dwc)
+def records_to_csv_bytes(records: list, dwc: bool = False, fieldnames: list = None) -> bytes:
+    return OutputFormatter.records_to_csv_bytes(records, dwc=dwc, fieldnames=fieldnames)
 
 
-def records_to_tsv_bytes(records: list, dwc: bool = False) -> bytes:
-    return OutputFormatter.records_to_tsv_bytes(records, dwc=dwc)
+def records_to_tsv_bytes(records: list, dwc: bool = False, fieldnames: list = None) -> bytes:
+    return OutputFormatter.records_to_tsv_bytes(records, dwc=dwc, fieldnames=fieldnames)
 
 
-def records_to_json_bytes(records: list, dwc: bool = False) -> bytes:
+def records_to_json_bytes(records: list, dwc: bool = False, fieldnames: list = None) -> bytes:
+    # JSON/GeoJSON preserve each record's own key order, so fieldnames is unused.
     return OutputFormatter.records_to_json_bytes(records, dwc=dwc)
 
 
-def records_to_geojson_bytes(records: list, dwc: bool = False) -> bytes:
+def records_to_geojson_bytes(records: list, dwc: bool = False, fieldnames: list = None) -> bytes:
     return OutputFormatter.records_to_geojson_bytes(records, dwc=dwc)
 
 
@@ -338,7 +339,9 @@ _DOWNLOAD_BUILDERS = {
 }
 
 
-def _render_download_buttons(records, formats, stem, key_prefix, heading="Download", dwc=False):
+def _render_download_buttons(
+    records, formats, stem, key_prefix, heading="Download", dwc=False, fieldnames=None
+):
     """Render optional 'download a copy' buttons for the given formats."""
     formats = [f for f in formats if f in _DOWNLOAD_BUILDERS] or ["csv"]
     st.subheader(heading)
@@ -347,7 +350,7 @@ def _render_download_buttons(records, formats, stem, key_prefix, heading="Downlo
         mime, ext, builder = _DOWNLOAD_BUILDERS[fmt]
         col.download_button(
             f"Download {fmt.upper()}",
-            data=builder(records, dwc=dwc),
+            data=builder(records, dwc=dwc, fieldnames=fieldnames),
             file_name=f"{stem}.{ext}",
             mime=mime,
             key=f"{key_prefix}_{fmt}",
@@ -1701,10 +1704,13 @@ def step_ensemble_analysis():
         f"ensemble_{os.path.splitext(os.path.basename(primary))[0]}"
         f"_vs_{os.path.splitext(os.path.basename(secondary))[0]}"
     )
+    fieldnames = result.get("fieldnames")
     saved_files = result.get("saved_files")
     if saved_files is None:
         base_path = os.path.join(out_dir, stem)
-        saved_files = OutputFormatter.write_output(records, base_path, formats)
+        saved_files = OutputFormatter.write_output(
+            records, base_path, formats, fieldnames=fieldnames
+        )
         result["saved_files"] = saved_files
 
     st.write("**Saved to your output folder:**")
@@ -1715,7 +1721,9 @@ def step_ensemble_analysis():
     try:
         import pandas as pd
 
-        st.dataframe(pd.DataFrame(records), use_container_width=True)
+        st.dataframe(
+            pd.DataFrame(records, columns=fieldnames), use_container_width=True
+        )
     except Exception:
         st.write(records[:50])
 
@@ -1725,6 +1733,7 @@ def step_ensemble_analysis():
         stem=stem,
         key_prefix="ensemble",
         heading="Or download a copy",
+        fieldnames=fieldnames,
     )
 
 

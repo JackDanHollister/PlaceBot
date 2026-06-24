@@ -7,17 +7,19 @@ Compare the coordinate estimates from two PlaceBot runs (typically the same
 dataset processed by two different LLMs) and flag records for manual
 verification based on how far apart the two estimates are.
 
-Records are merged on their ``Barcode``. For each record the great-circle
-(haversine) distance between the two models' coordinates is computed and bucketed
-into an agreement category:
+Records are merged on their record identifier (Barcode / occurrenceID /
+gbifID / ...). For each record the great-circle (haversine) distance between the
+two models' coordinates is computed and bucketed into an agreement category:
 
     close (<2km)  ·  moderate (2-5km)  ·  low (5-10km)  ·  none (>10km)
 
-Records where either coordinate is missing/invalid, or whose barcode only
+Records where either coordinate is missing/invalid, or whose identifier only
 appears in one file, fall into "no comparison".
 
-The "primary" file's values are carried forward into the output; the secondary
-file only contributes its coordinates (for reference) and the distance/category.
+Output column order: every column from the primary file first (in its original
+order), then the secondary file's *processed* columns prefixed with
+``Secondary_`` (the shared original input columns are skipped so they aren't
+duplicated), then ``Agreement_Category`` and finally ``Distance_km``.
 
 Both the CLI (``placebot-ensemble``) and the GUI call :func:`run_ensemble`.
 """
@@ -32,6 +34,7 @@ import numpy as np
 
 from placebot.core.coordinate_utils import validate_coordinates
 from placebot.core.field_mapping import IDENTIFIER_FIELDS
+from placebot.core.output_formatter import PLACEBOT_OUTPUT_COLUMNS
 
 
 # ---------------------------------------------------------------------------
@@ -53,11 +56,17 @@ CATEGORIES = [
     CATEGORY_NO_COMPARISON,
 ]
 
-# Columns appended to each carried-forward record.
+# The secondary file's columns are carried forward under this prefix (all of
+# them except the original input columns, which are shared with the primary and
+# so would only be duplicates).
+SECONDARY_PREFIX = "Secondary_"
+
+# Columns appended to each carried-forward record, after the prefixed secondary
+# block. ``Agreement_Category`` then ``Distance_km`` are always the last two.
 AGREEMENT_COLUMN = "Agreement_Category"
 DISTANCE_COLUMN = "Distance_km"
-SECONDARY_LAT_COLUMN = "Secondary_Latitude"
-SECONDARY_LON_COLUMN = "Secondary_Longitude"
+SECONDARY_LAT_COLUMN = SECONDARY_PREFIX + "Latitude"
+SECONDARY_LON_COLUMN = SECONDARY_PREFIX + "Longitude"
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +212,18 @@ def _coords(record: Dict[str, Any]):
     return validate_coordinates(lat, lon)
 
 
+def _column_order(records: List[Dict[str, Any]]) -> List[str]:
+    """Column names in the order they first appear across ``records``."""
+    seen: List[str] = []
+    seen_set = set()
+    for record in records:
+        for key in record.keys():
+            if key not in seen_set:
+                seen_set.add(key)
+                seen.append(key)
+    return seen
+
+
 # ---------------------------------------------------------------------------
 # Core comparison
 # ---------------------------------------------------------------------------
@@ -211,21 +232,24 @@ def run_ensemble(primary_path: str, secondary_path: str) -> Dict[str, Any]:
     """Compare two PlaceBot output files and build annotated output records.
 
     Returns a dict with:
-        records           - carried-forward primary records + agreement columns
+        records           - carried-forward primary records + secondary columns
+        fieldnames        - explicit output column order (see module docstring)
         summary           - OrderedDict[category -> count]
         primary_name      - basename of the primary file
         secondary_name    - basename of the secondary file
         total             - number of output records (= primary record count)
-        only_in_primary   - barcodes present only in the primary file
-        only_in_secondary - barcodes present only in the secondary file
-        duplicate_barcodes- duplicate barcodes seen in the secondary file
+        only_in_primary   - records present only in the primary file
+        only_in_secondary - records present only in the secondary file
+        duplicate_barcodes- duplicate identifiers seen in the secondary file
     """
     primary = load_records(primary_path)
     secondary = load_records(secondary_path)
 
     # Index secondary by record key (keep first occurrence; count duplicates).
+    # Track the secondary file's column order as we go.
     secondary_index: Dict[str, Dict[str, Any]] = {}
     duplicate_barcodes = 0
+    secondary_fields = _column_order(secondary)
     for rec in secondary:
         bc = _record_key(rec)
         if bc is None:
@@ -235,17 +259,24 @@ def run_ensemble(primary_path: str, secondary_path: str) -> Dict[str, Any]:
             continue
         secondary_index[bc] = rec
 
+    # Primary columns (original order) lead the output; then the secondary file's
+    # processed columns (everything PlaceBot adds), prefixed. The shared original
+    # input columns are skipped so they aren't duplicated under the prefix.
+    primary_fields = _column_order(primary)
+    placebot_set = set(PLACEBOT_OUTPUT_COLUMNS)
+    secondary_carry = [col for col in secondary_fields if col in placebot_set]
+
     matched_secondary = set()
     output_records: List[Dict[str, Any]] = []
     only_in_primary = 0
 
     for rec in primary:
-        out = dict(rec)  # carry forward all primary columns
+        # Primary columns first, in a fixed order so every row lines up.
+        out: Dict[str, Any] = {col: rec.get(col, "") for col in primary_fields}
         bc = _record_key(rec)
         sec = secondary_index.get(bc) if bc is not None else None
 
         distance = None
-        sec_lat = sec_lon = None
         if sec is not None:
             matched_secondary.add(bc)
             lat1, lon1 = _coords(rec)
@@ -255,18 +286,28 @@ def run_ensemble(primary_path: str, secondary_path: str) -> Dict[str, Any]:
         else:
             only_in_primary += 1
 
+        # Secondary processed columns (prefixed); blank when there's no match.
+        for col in secondary_carry:
+            value = sec.get(col, "") if sec is not None else ""
+            out[SECONDARY_PREFIX + col] = "" if value is None else value
+
         out[AGREEMENT_COLUMN] = categorise(distance)
         out[DISTANCE_COLUMN] = distance if distance is not None else ""
-        out[SECONDARY_LAT_COLUMN] = sec_lat if sec_lat is not None else ""
-        out[SECONDARY_LON_COLUMN] = sec_lon if sec_lon is not None else ""
         output_records.append(out)
 
     only_in_secondary = sum(
         1 for bc in secondary_index if bc not in matched_secondary
     )
 
+    fieldnames = (
+        list(primary_fields)
+        + [SECONDARY_PREFIX + col for col in secondary_carry]
+        + [AGREEMENT_COLUMN, DISTANCE_COLUMN]
+    )
+
     return {
         "records": output_records,
+        "fieldnames": fieldnames,
         "summary": summarise(output_records),
         "primary_name": os.path.basename(primary_path),
         "secondary_name": os.path.basename(secondary_path),

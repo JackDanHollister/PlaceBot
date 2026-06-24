@@ -190,6 +190,72 @@ def test_run_ensemble_matches_on_gbif_id_only(tmp_path):
     assert result["records"][0][ea.AGREEMENT_COLUMN] == ea.CATEGORY_CLOSE
 
 
+def test_run_ensemble_column_order(tmp_path):
+    # Output order: all primary columns (original order), then the secondary
+    # file's PlaceBot columns prefixed "Secondary_" (shared input columns are
+    # NOT duplicated), then Agreement_Category and finally Distance_km.
+    primary = tmp_path / "p.csv"
+    secondary = tmp_path / "s.csv"
+    _write_csv(
+        primary,
+        [
+            {
+                "gbifID": "1",
+                "occurrenceID": "X",
+                "Country_Processed": "UK",
+                "Latitude": "51.45",
+                "Longitude": "-2.59",
+            }
+        ],
+    )
+    _write_csv(
+        secondary,
+        [
+            {
+                "gbifID": "1",
+                "occurrenceID": "X",
+                "Country_Processed": "United Kingdom",
+                "Latitude": "51.46",
+                "Longitude": "-2.59",
+            }
+        ],
+    )
+
+    result = ea.run_ensemble(str(primary), str(secondary))
+    fields = result["fieldnames"]
+
+    # Primary columns first, in their original order.
+    assert fields[:5] == [
+        "gbifID",
+        "occurrenceID",
+        "Country_Processed",
+        "Latitude",
+        "Longitude",
+    ]
+    # Secondary PlaceBot columns are carried (prefixed); shared input columns
+    # (gbifID / occurrenceID) are not duplicated.
+    assert "Secondary_Country_Processed" in fields
+    assert "Secondary_Latitude" in fields
+    assert "Secondary_gbifID" not in fields
+    assert "Secondary_occurrenceID" not in fields
+    # The secondary block sits after the primary columns and before the trailing
+    # agreement/distance pair, which is always last (agreement then distance).
+    assert fields.index("Secondary_Country_Processed") > fields.index("Longitude")
+    assert fields[-2:] == [ea.AGREEMENT_COLUMN, ea.DISTANCE_COLUMN]
+
+    # The CSV writer honours that exact order via the explicit fieldnames.
+    raw = OutputFormatter.records_to_csv_bytes(result["records"], fieldnames=fields)
+    header = raw.decode("utf-8-sig").splitlines()[0]
+    assert header.split(",")[:5] == [
+        "gbifID",
+        "occurrenceID",
+        "Country_Processed",
+        "Latitude",
+        "Longitude",
+    ]
+    assert header.split(",")[-2:] == [ea.AGREEMENT_COLUMN, ea.DISTANCE_COLUMN]
+
+
 def test_summary_lists_every_category_including_zero():
     summary = ea.summarise([])
     assert list(summary.keys()) == ea.CATEGORIES

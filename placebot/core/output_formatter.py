@@ -83,17 +83,19 @@ def order_fieldnames(
     return input_cols + appended
 
 
-def _prepare(data: List[Dict[str, Any]], dwc: bool):
+def _prepare(data: List[Dict[str, Any]], dwc: bool, fieldnames: List[str] = None):
     """Return (records, fieldnames) ready for writing, applying DwC renaming.
 
     When ``dwc`` is True the records are copied with their keys renamed to
     Darwin Core terms and ordered by ``DWC_COLUMN_ORDER``; otherwise the native
-    records and column order are used unchanged.
+    records are used unchanged. Pass an explicit ``fieldnames`` to bypass the
+    canonical ordering entirely (used by the ensemble export, which needs its own
+    primary / Secondary_ / agreement column order); ignored on the DwC path.
     """
     if dwc:
         data = to_dwc_records(data)
         return data, order_fieldnames(data, DWC_COLUMN_ORDER)
-    return data, order_fieldnames(data)
+    return data, fieldnames or order_fieldnames(data)
 
 
 class OutputFormatter:
@@ -104,17 +106,20 @@ class OutputFormatter:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def records_to_csv_bytes(data: List[Dict[str, Any]], dwc: bool = False) -> bytes:
+    def records_to_csv_bytes(
+        data: List[Dict[str, Any]], dwc: bool = False, fieldnames: List[str] = None
+    ) -> bytes:
         """Render records as CSV bytes with a UTF-8 BOM.
 
         The BOM (``utf-8-sig``) makes Excel on Windows auto-detect UTF-8 so
         accented names like "Bouches-du-Rhône" render correctly instead of
         mojibake ("Bouches-du-RhÃ´ne"). Set ``dwc`` to rename columns to
-        Darwin Core terms.
+        Darwin Core terms, or pass ``fieldnames`` to force an explicit column
+        order (e.g. the ensemble export).
         """
         if not data:
             return b""
-        data, fieldnames = _prepare(data, dwc)
+        data, fieldnames = _prepare(data, dwc, fieldnames)
         buf = io.StringIO()
         writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
@@ -122,15 +127,18 @@ class OutputFormatter:
         return buf.getvalue().encode("utf-8-sig")
 
     @staticmethod
-    def records_to_tsv_bytes(data: List[Dict[str, Any]], dwc: bool = False) -> bytes:
+    def records_to_tsv_bytes(
+        data: List[Dict[str, Any]], dwc: bool = False, fieldnames: List[str] = None
+    ) -> bytes:
         """Render records as tab-separated bytes with a UTF-8 BOM.
 
         Same canonical column order and Excel-friendly BOM as the CSV writer,
-        just tab-delimited. Set ``dwc`` to rename columns to Darwin Core terms.
+        just tab-delimited. Set ``dwc`` to rename columns to Darwin Core terms,
+        or pass ``fieldnames`` to force an explicit column order.
         """
         if not data:
             return b""
-        data, fieldnames = _prepare(data, dwc)
+        data, fieldnames = _prepare(data, dwc, fieldnames)
         buf = io.StringIO()
         writer = csv.DictWriter(
             buf, fieldnames=fieldnames, extrasaction="ignore", delimiter="\t"
@@ -198,7 +206,10 @@ class OutputFormatter:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def to_csv(data: List[Dict[str, Any]], output_path: str, dwc: bool = False) -> str:
+    def to_csv(
+        data: List[Dict[str, Any]], output_path: str, dwc: bool = False,
+        fieldnames: List[str] = None,
+    ) -> str:
         """
         Write data to CSV format.
 
@@ -206,6 +217,7 @@ class OutputFormatter:
             data: List of record dictionaries
             output_path: Output file path
             dwc: Rename columns to Darwin Core terms
+            fieldnames: Explicit column order (bypasses canonical ordering)
 
         Returns:
             Path to created file
@@ -222,12 +234,15 @@ class OutputFormatter:
         # Written as bytes (with BOM) so the file matches the GUI download byte
         # for byte and Excel renders accents correctly.
         with open(output_path, 'wb') as f:
-            f.write(OutputFormatter.records_to_csv_bytes(data, dwc=dwc))
+            f.write(OutputFormatter.records_to_csv_bytes(data, dwc=dwc, fieldnames=fieldnames))
 
         return output_path
 
     @staticmethod
-    def to_tsv(data: List[Dict[str, Any]], output_path: str, dwc: bool = False) -> str:
+    def to_tsv(
+        data: List[Dict[str, Any]], output_path: str, dwc: bool = False,
+        fieldnames: List[str] = None,
+    ) -> str:
         """
         Write data to TSV (tab-separated) format.
 
@@ -235,6 +250,7 @@ class OutputFormatter:
             data: List of record dictionaries
             output_path: Output file path
             dwc: Rename columns to Darwin Core terms
+            fieldnames: Explicit column order (bypasses canonical ordering)
 
         Returns:
             Path to created file
@@ -249,7 +265,7 @@ class OutputFormatter:
             output_path += '.tsv'
 
         with open(output_path, 'wb') as f:
-            f.write(OutputFormatter.records_to_tsv_bytes(data, dwc=dwc))
+            f.write(OutputFormatter.records_to_tsv_bytes(data, dwc=dwc, fieldnames=fieldnames))
 
         return output_path
 
@@ -306,7 +322,8 @@ class OutputFormatter:
 
     @staticmethod
     def write_output(
-        data: List[Dict[str, Any]], base_path: str, formats: List[str], dwc: bool = False
+        data: List[Dict[str, Any]], base_path: str, formats: List[str],
+        dwc: bool = False, fieldnames: List[str] = None,
     ) -> Dict[str, str]:
         """
         Write output in multiple formats.
@@ -316,6 +333,8 @@ class OutputFormatter:
             base_path: Base output path (without extension)
             formats: List of format names ('csv', 'json', 'geojson')
             dwc: Rename columns/keys to Darwin Core terms in every export
+            fieldnames: Explicit column order for CSV/TSV (bypasses canonical
+                ordering; used by the ensemble export)
 
         Returns:
             Dictionary mapping format names to output paths
@@ -326,10 +345,10 @@ class OutputFormatter:
             fmt_lower = fmt.lower()
             try:
                 if fmt_lower == 'csv':
-                    path = OutputFormatter.to_csv(data, base_path, dwc=dwc)
+                    path = OutputFormatter.to_csv(data, base_path, dwc=dwc, fieldnames=fieldnames)
                     results['csv'] = path
                 elif fmt_lower == 'tsv':
-                    path = OutputFormatter.to_tsv(data, base_path, dwc=dwc)
+                    path = OutputFormatter.to_tsv(data, base_path, dwc=dwc, fieldnames=fieldnames)
                     results['tsv'] = path
                 elif fmt_lower == 'json':
                     path = OutputFormatter.to_json(data, base_path, dwc=dwc)
