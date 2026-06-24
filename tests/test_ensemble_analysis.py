@@ -120,6 +120,78 @@ def test_run_ensemble_categories_and_carry_forward(tmp_path):
     assert summary[ea.CATEGORY_NO_COMPARISON] == 2
 
 
+def test_run_ensemble_matches_gbif_identifiers(tmp_path):
+    # GBIF outputs have no "Barcode" column; records are identified by
+    # occurrenceID / gbifID. Matching must still work (regression for the
+    # "30x no comparison" bug).
+    primary = tmp_path / "p.csv"
+    secondary = tmp_path / "s.csv"
+
+    _write_csv(
+        primary,
+        [
+            {
+                "gbifID": "1291505203",
+                "occurrenceID": "urn:catalog:RMNH.PISC.87661",
+                "Latitude": "51.45",
+                "Longitude": "-2.59",
+            },
+            {
+                "gbifID": "6158671311",
+                "occurrenceID": "urn:catalog:RMNH.PISC.99999",
+                "Latitude": "40.0",
+                "Longitude": "-3.0",
+            },
+        ],
+    )
+    _write_csv(
+        secondary,
+        [
+            {
+                "gbifID": "1291505203",
+                "occurrenceID": "urn:catalog:RMNH.PISC.87661",
+                "Latitude": "51.46",
+                "Longitude": "-2.59",
+            },  # close
+            {
+                "gbifID": "6158671311",
+                "occurrenceID": "urn:catalog:RMNH.PISC.99999",
+                "Latitude": "51.0",
+                "Longitude": "-1.0",
+            },  # none
+        ],
+    )
+
+    result = ea.run_ensemble(str(primary), str(secondary))
+
+    assert result["total"] == 2
+    assert result["only_in_primary"] == 0
+    assert result["only_in_secondary"] == 0
+
+    cats = [r[ea.AGREEMENT_COLUMN] for r in result["records"]]
+    assert ea.CATEGORY_NO_COMPARISON not in cats
+    assert cats[0] == ea.CATEGORY_CLOSE
+    assert cats[1] == ea.CATEGORY_NONE
+
+
+def test_run_ensemble_matches_on_gbif_id_only(tmp_path):
+    # When occurrenceID is absent, gbifID should still drive the match.
+    primary = tmp_path / "p.csv"
+    secondary = tmp_path / "s.csv"
+    _write_csv(
+        primary,
+        [{"gbifID": "555", "Latitude": "10.0", "Longitude": "10.0"}],
+    )
+    _write_csv(
+        secondary,
+        [{"gbifID": "555", "Latitude": "10.005", "Longitude": "10.005"}],
+    )
+
+    result = ea.run_ensemble(str(primary), str(secondary))
+    assert result["only_in_primary"] == 0
+    assert result["records"][0][ea.AGREEMENT_COLUMN] == ea.CATEGORY_CLOSE
+
+
 def test_column_order_and_secondary_georef_only(tmp_path):
     primary = tmp_path / "p.csv"
     secondary = tmp_path / "s.csv"

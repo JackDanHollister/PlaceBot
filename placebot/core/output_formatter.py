@@ -16,12 +16,22 @@ from placebot.core.field_mapping import DWC_COLUMN_ORDER, to_dwc_records
 
 # Canonical output column order, shared by every export path (CLI and GUI;
 # single, batch, and staggered processing) so downloads are consistent
-# regardless of how they were produced. Any columns not listed here are
-# appended afterwards in alphabetical order.
+# regardless of how they were produced.
 DESIRED_COLUMN_ORDER = [
     'Barcode', 'Locality verbatim', 'Country', 'Country_Processed',
     'State', 'Region', 'Sector', 'Exact_Site', 'Elevation',
     'Elevation_Original', 'Latitude', 'Longitude',
+    'Coordinate_Radius_Meters', 'Coordinate_Source',
+    'Confidence', 'Processing_Notes',
+]
+
+# The columns PlaceBot *adds* to each record during processing. Everything else
+# in an output record came from the input file. On the native export path these
+# are appended (in this order) after the original input columns, so the input
+# file's own column layout is preserved instead of being reordered.
+PLACEBOT_OUTPUT_COLUMNS = [
+    'Country_Processed', 'State', 'Region', 'Sector', 'Exact_Site',
+    'Elevation', 'Elevation_Original', 'Latitude', 'Longitude',
     'Coordinate_Radius_Meters', 'Coordinate_Source',
     'Confidence', 'Processing_Notes',
 ]
@@ -40,32 +50,65 @@ def order_fieldnames(
 ) -> List[str]:
     """Return record field names in the canonical export order.
 
-    Columns in ``priority`` come first (in that order), followed by any
-    remaining columns sorted alphabetically. Used everywhere results are
-    written so CLI and GUI exports line up exactly. Pass ``DWC_COLUMN_ORDER``
-    for Darwin Core exports.
+    Used everywhere results are written so CLI and GUI exports line up exactly.
+
+    Native export (the default): the original input columns are kept first in
+    the order they first appear across the records, then the columns PlaceBot
+    adds (``PLACEBOT_OUTPUT_COLUMNS``) are appended in their canonical order.
+    This preserves the input file's own column layout.
+
+    Darwin Core export (pass ``DWC_COLUMN_ORDER``): the priority columns come
+    first in that order, followed by any remaining columns in first-seen order.
     """
-    present = set()
+    # Preserve first-seen key order across records (records built via
+    # record.copy() then .update(...) carry input columns first, so this
+    # recovers the original input order).
+    seen: List[str] = []
+    seen_set = set()
     for record in records:
-        present.update(record.keys())
-    ordered = [col for col in priority if col in present]
-    extras = sorted(col for col in present if col not in priority)
-    return ordered + extras
+        for key in record.keys():
+            if key not in seen_set:
+                seen.append(key)
+                seen_set.add(key)
+
+    if priority is DWC_COLUMN_ORDER:
+        ordered = [col for col in priority if col in seen_set]
+        extras = [col for col in seen if col not in priority]
+        return ordered + extras
+
+    # Native path: input columns first (original order), PlaceBot columns after.
+    appended = [col for col in PLACEBOT_OUTPUT_COLUMNS if col in seen_set]
+    appended_set = set(appended)
+    input_cols = [col for col in seen if col not in appended_set]
+    return input_cols + appended
 
 
 def _prepare(data: List[Dict[str, Any]], dwc: bool, column_order: List[str] = None):
     """Return (records, fieldnames) ready for writing, applying DwC renaming.
 
-    When ``dwc`` is True the records are copied with their keys renamed to
-    Darwin Core terms and ordered by ``DWC_COLUMN_ORDER``; otherwise the native
-    records and column order are used unchanged. An explicit ``column_order``
-    (used as the priority list) overrides the default canonical order — any keys
-    not listed are still appended afterwards in alphabetical order.
+    An explicit ``column_order`` (e.g. the ensemble layout) is honored verbatim:
+    listed columns come first in that order, then any stray keys in first-seen
+    order. This bypasses the native/DwC ordering, which would otherwise reorder
+    those columns. When ``dwc`` is True (and no ``column_order``) the records are
+    copied with their keys renamed to Darwin Core terms and ordered by
+    ``DWC_COLUMN_ORDER``; otherwise the native input-preserving order is used.
     """
+    if column_order:
+        seen: List[str] = []
+        seen_set = set()
+        for record in data:
+            for key in record.keys():
+                if key not in seen_set:
+                    seen_set.add(key)
+                    seen.append(key)
+        co_set = set(column_order)
+        ordered = [col for col in column_order if col in seen_set]
+        extras = [col for col in seen if col not in co_set]
+        return data, ordered + extras
     if dwc:
         data = to_dwc_records(data)
-        return data, order_fieldnames(data, column_order or DWC_COLUMN_ORDER)
-    return data, order_fieldnames(data, column_order or DESIRED_COLUMN_ORDER)
+        return data, order_fieldnames(data, DWC_COLUMN_ORDER)
+    return data, order_fieldnames(data)
 
 
 class OutputFormatter:

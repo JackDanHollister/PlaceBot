@@ -33,6 +33,7 @@ import numpy as np
 
 from placebot.core.coordinate_utils import validate_coordinates
 from placebot.core.deduplication import GEOREFERENCE_COLUMNS
+from placebot.core.field_mapping import IDENTIFIER_FIELDS
 
 
 # ---------------------------------------------------------------------------
@@ -199,9 +200,22 @@ def _get(record: Dict[str, Any], *names: str) -> Any:
     return None
 
 
-def _barcode(record: Dict[str, Any]) -> Optional[str]:
-    bc = _get(record, "Barcode", "barcode", "locality_id", "id")
+def _record_key(record: Dict[str, Any]) -> Optional[str]:
+    """Resolve a record's match key from any standard identifier column.
+
+    Uses the same identifier fields as the rest of the pipeline
+    (``Barcode``/``catalogNumber``/``occurrenceID``/...) plus ``gbifID`` and a
+    few generic fallbacks, so GBIF and Darwin Core exports match as well as
+    native PlaceBot files. Returns ``None`` when no identifier is present (those
+    records stay in "no comparison"); it must not collapse to a shared default
+    or unrelated rows would falsely match.
+    """
+    bc = _get(record, *IDENTIFIER_FIELDS, "gbifID", "barcode", "locality_id", "id")
     return str(bc).strip() if bc not in (None, "") else None
+
+
+# Backwards-compatible alias (older name).
+_barcode = _record_key
 
 
 def _coords(record: Dict[str, Any]):
@@ -238,11 +252,11 @@ def run_ensemble(primary_path: str, secondary_path: str) -> Dict[str, Any]:
     primary_columns = _ordered_columns(primary)
     secondary_georef = [c for c in _ordered_columns(secondary) if c in _GEOREFERENCE_SET]
 
-    # Index secondary by barcode (keep first occurrence; count duplicates).
+    # Index secondary by record key (keep first occurrence; count duplicates).
     secondary_index: Dict[str, Dict[str, Any]] = {}
     duplicate_barcodes = 0
     for rec in secondary:
-        bc = _barcode(rec)
+        bc = _record_key(rec)
         if bc is None:
             continue
         if bc in secondary_index:
@@ -256,7 +270,7 @@ def run_ensemble(primary_path: str, secondary_path: str) -> Dict[str, Any]:
 
     for rec in primary:
         out = dict(rec)  # carry forward all primary columns
-        bc = _barcode(rec)
+        bc = _record_key(rec)
         sec = secondary_index.get(bc) if bc is not None else None
 
         distance = None

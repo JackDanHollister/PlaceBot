@@ -548,9 +548,7 @@ def render_sidebar():
             badge = "Environment"
         else:
             badge = "Not set"
-        with st.sidebar.expander(
-            f"{label} — {badge}", expanded=not (saved or session or available)
-        ):
+        with st.sidebar.expander(f"{label} — {badge}", expanded=False):
             st.caption(
                 "Used for this session only unless you tick "
                 "**Remember on this computer**."
@@ -818,7 +816,6 @@ def _render_configure_section():
             comp = comp_by_name.get(cfg.get("name", ""), {})
             rows.append(
                 {
-                    "Use": cfg["_file"] == selected_file,
                     "Model": cfg.get("name", cfg.get("_file")),
                     "Vendor": comp.get("vendor", cfg.get("provider", "")),
                     "Model ID": cfg.get("model_id", ""),
@@ -832,37 +829,34 @@ def _render_configure_section():
                 }
             )
 
-        edited = st.data_editor(
+        st.caption("Click a row to choose the single model to run.")
+        # Native single-row selection behaves like a radio button: only one
+        # model can ever be selected. Key is stable across reruns (source only)
+        # so the user's pick persists; it resets when the source list changes.
+        event = st.dataframe(
             pd.DataFrame(rows),
             hide_index=True,
             use_container_width=True,
-            disabled=[
-                "Model",
-                "Vendor",
-                "Model ID",
-                "Est. cost",
-                "Est. time (min)",
-                "Ready",
-            ],
-            column_config={
-                "Use": st.column_config.CheckboxColumn(
-                    "Use",
-                    help="Select this single model to run",
-                    default=False,
-                ),
-            },
-            # Re-key on the current source/selection so the editor's accumulated
-            # edit state resets whenever the chosen model changes.
-            key=f"model_table_{source}_{selected_file}",
+            on_select="rerun",
+            selection_mode="single-row",
+            key=f"model_table_{source}",
         )
-
-        # The checkbox column behaves like a radio: resolve a single selection,
-        # preferring any newly-ticked row over the previous choice.
-        checked = [i for i in edited.index if bool(edited.loc[i, "Use"])]
-        if checked:
-            newly = [table_files[i] for i in checked if table_files[i] != selected_file]
-            selected_file = newly[0] if newly else table_files[checked[0]]
+        selected_rows = []
+        if event is not None and getattr(event, "selection", None):
+            selected_rows = event.selection.get("rows", [])
+        if selected_rows:
+            selected_file = table_files[selected_rows[0]]
         st.session_state.model_file = selected_file
+
+        selected_name = next(
+            (
+                cfg.get("name", cfg.get("_file"))
+                for cfg in table_configs
+                if cfg["_file"] == selected_file
+            ),
+            selected_file,
+        )
+        st.caption(f"Selected model: **{selected_name}**")
 
     model_file = selected_file
     model_config = next(c for c in configs if c["_file"] == model_file)
