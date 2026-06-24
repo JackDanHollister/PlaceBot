@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Output now preserves the input file's column order.** Exports previously put
+  PlaceBot's columns first and then appended the original input columns in
+  *alphabetical* order, scrambling the input layout. The original input columns
+  are now kept first in their original order, with the PlaceBot-added columns
+  (`Country_Processed`, `State`, …, `Processing_Notes`) appended after.
+- **Ensemble analysis matches GBIF and Darwin Core records.** The comparison
+  matched records only on a `Barcode` column, so GBIF/DwC outputs (identified by
+  `occurrenceID` / `gbifID` / `catalogNumber`) produced "no comparison" for every
+  record. Matching now resolves the record key from the standard identifier
+  fields, falling back to `gbifID` and generic id columns.
+
+### Changed
+- **GUI: provider API-key panels all start collapsed.** The OpenRouter panel no
+  longer opens expanded on load; every provider panel starts collapsed.
+- **GUI: model selection is now single-select by row click.** The model table
+  replaced its tickbox column with native single-row selection, so exactly one
+  model can be chosen (radio-button behaviour) instead of allowing multiple
+  ticks.
+
 ### Added
 - **Inline deduplication in the GUI and CLI.** The interactive `placebot` CLI now
   prompts "Deduplicate repeated localities? (Y/n)" and the GUI has a matching

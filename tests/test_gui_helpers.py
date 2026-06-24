@@ -30,6 +30,57 @@ def test_csv_bytes_consistent_column_order(sample_records):
     ]
 
 
+def test_csv_preserves_input_column_order_then_appends_placebot():
+    # GBIF-style record: original input columns first (in their order), then the
+    # columns PlaceBot adds. The input layout must be preserved, not reordered.
+    record = {
+        "gbifID": "1291505203",
+        "occurrenceID": "urn:catalog:RMNH.PISC.87661",
+        "datasetKey": "abc",
+        "basisOfRecord": "PRESERVED_SPECIMEN",
+        "scientificName": "Foo bar",
+        "country": "Netherlands",
+        "countryCode": "NL",
+        "verbatimLocality": "Wassenaar",
+        "decimalLatitude": "",
+        "decimalLongitude": "",
+        # PlaceBot-added columns (intentionally interleaved in the dict to prove
+        # ordering comes from the canonical lists, not dict insertion order).
+        "Country_Processed": "Netherlands",
+        "State": "South Holland",
+        "Latitude": 52.16,
+        "Longitude": 4.33,
+        "Confidence": "medium",
+        "Processing_Notes": "ok",
+    }
+    header = app.records_to_csv_bytes([record]).decode("utf-8-sig").splitlines()[0]
+    cols = header.split(",")
+
+    input_cols = [
+        "gbifID",
+        "occurrenceID",
+        "datasetKey",
+        "basisOfRecord",
+        "scientificName",
+        "country",
+        "countryCode",
+        "verbatimLocality",
+        "decimalLatitude",
+        "decimalLongitude",
+    ]
+    # Input columns appear first, in their original order.
+    assert cols[: len(input_cols)] == input_cols
+    # PlaceBot columns are appended afterwards, in their canonical order.
+    assert cols[len(input_cols) :] == [
+        "Country_Processed",
+        "State",
+        "Latitude",
+        "Longitude",
+        "Confidence",
+        "Processing_Notes",
+    ]
+
+
 def test_json_bytes_roundtrips(sample_records):
     data = json.loads(app.records_to_json_bytes(sample_records))
     assert len(data) == 2
