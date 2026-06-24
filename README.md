@@ -339,11 +339,12 @@ record with an agreement category:
 | none (>10km)    | > 10 km |
 | no comparison   | coordinates missing in either file, or barcode only in one file |
 
-The output TSV and CSV files contain the carried-forward records plus
-`Agreement_Category`, `Distance_km`, and the other model's
-`Secondary_Latitude`/`Secondary_Longitude` for reference, so you can filter
-straight to the records that need verifying. A summary report shows how many
-records fall into each category.
+The output TSV and CSV files preserve every column from the primary file, then
+add the second model's processed columns prefixed with `Secondary_` (e.g.
+`Secondary_Latitude`, `Secondary_Country_Processed` — the shared original input
+columns aren't duplicated), and finally `Agreement_Category` and `Distance_km`,
+so you can filter straight to the records that need verifying. A summary report
+shows how many records fall into each category.
 
 The same workflow is available in the graphical interface on the **Ensemble
 analysis** page — just pick the two files from your output folder (or upload

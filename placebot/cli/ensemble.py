@@ -134,7 +134,9 @@ def _analyse(primary, secondary, formats):
     prim_stem = os.path.splitext(os.path.basename(primary))[0]
     sec_stem = os.path.splitext(os.path.basename(secondary))[0]
     base = os.path.join(str(get_output_dir()), f"ensemble_{prim_stem}_vs_{sec_stem}")
-    saved = OutputFormatter.write_output(result["records"], base, formats)
+    saved = OutputFormatter.write_output(
+        result["records"], base, formats, fieldnames=result.get("fieldnames")
+    )
 
     _print_summary(result)
     print("\nSaved:")
