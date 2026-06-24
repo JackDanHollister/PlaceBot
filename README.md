@@ -339,9 +339,11 @@ record with an agreement category:
 | none (>10km)    | > 10 km |
 | no comparison   | coordinates missing in either file, or barcode only in one file |
 
-The output TSV and CSV files contain the carried-forward records plus
-`Agreement_Category`, `Distance_km`, and the other model's
-`Secondary_Latitude`/`Secondary_Longitude` for reference, so you can filter
+The output TSV and CSV files use a fixed column layout: all of the primary
+file's columns (in their original order), then the secondary file's
+georeference columns prefixed with `Secondary_` (e.g. `Secondary_Latitude`,
+`Secondary_Longitude`, `Secondary_Confidence`, `Secondary_Processing_Notes`),
+and finally `Agreement_Category` followed by `Distance_km`. This lets you filter
 straight to the records that need verifying. A summary report shows how many
 records fall into each category.
 

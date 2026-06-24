@@ -17,7 +17,8 @@ Records where either coordinate is missing/invalid, or whose barcode only
 appears in one file, fall into "no comparison".
 
 The "primary" file's values are carried forward into the output; the secondary
-file only contributes its coordinates (for reference) and the distance/category.
+file contributes its georeference columns (each prefixed ``Secondary_``) and the
+distance/category.
 
 Both the CLI (``placebot-ensemble``) and the GUI call :func:`run_ensemble`.
 """
@@ -31,6 +32,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from placebot.core.coordinate_utils import validate_coordinates
+from placebot.core.deduplication import GEOREFERENCE_COLUMNS
 
 
 # ---------------------------------------------------------------------------
@@ -55,8 +57,27 @@ CATEGORIES = [
 # Columns appended to each carried-forward record.
 AGREEMENT_COLUMN = "Agreement_Category"
 DISTANCE_COLUMN = "Distance_km"
-SECONDARY_LAT_COLUMN = "Secondary_Latitude"
-SECONDARY_LON_COLUMN = "Secondary_Longitude"
+# Prefix applied to the secondary file's georeference columns when carried over.
+SECONDARY_PREFIX = "Secondary_"
+# Kept for backwards compatibility / external references; both are produced by
+# prefixing the secondary file's Latitude/Longitude columns.
+SECONDARY_LAT_COLUMN = SECONDARY_PREFIX + "Latitude"
+SECONDARY_LON_COLUMN = SECONDARY_PREFIX + "Longitude"
+
+# The secondary columns carried into the output: the produced georeference set.
+_GEOREFERENCE_SET = set(GEOREFERENCE_COLUMNS)
+
+
+def _ordered_columns(records: List[Dict[str, Any]]) -> List[str]:
+    """First-seen union of column names across ``records`` (header order)."""
+    order: List[str] = []
+    seen = set()
+    for rec in records:
+        for key in rec.keys():
+            if key not in seen:
+                seen.add(key)
+                order.append(key)
+    return order
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +219,9 @@ def run_ensemble(primary_path: str, secondary_path: str) -> Dict[str, Any]:
 
     Returns a dict with:
         records           - carried-forward primary records + agreement columns
+        column_order      - explicit output column order: all primary columns,
+                            then the secondary georeference columns (prefixed
+                            ``Secondary_``), then Agreement_Category, Distance_km
         summary           - OrderedDict[category -> count]
         primary_name      - basename of the primary file
         secondary_name    - basename of the secondary file
@@ -208,6 +232,11 @@ def run_ensemble(primary_path: str, secondary_path: str) -> Dict[str, Any]:
     """
     primary = load_records(primary_path)
     secondary = load_records(secondary_path)
+
+    # Column order: all primary columns (file order), then the secondary file's
+    # georeference columns (file order, prefixed), then the agreement columns.
+    primary_columns = _ordered_columns(primary)
+    secondary_georef = [c for c in _ordered_columns(secondary) if c in _GEOREFERENCE_SET]
 
     # Index secondary by barcode (keep first occurrence; count duplicates).
     secondary_index: Dict[str, Dict[str, Any]] = {}
@@ -241,18 +270,27 @@ def run_ensemble(primary_path: str, secondary_path: str) -> Dict[str, Any]:
         else:
             only_in_primary += 1
 
+        # Carry the secondary file's georeference columns (raw values), prefixed.
+        for col in secondary_georef:
+            out[SECONDARY_PREFIX + col] = sec.get(col, "") if sec is not None else ""
+
         out[AGREEMENT_COLUMN] = categorise(distance)
         out[DISTANCE_COLUMN] = distance if distance is not None else ""
-        out[SECONDARY_LAT_COLUMN] = sec_lat if sec_lat is not None else ""
-        out[SECONDARY_LON_COLUMN] = sec_lon if sec_lon is not None else ""
         output_records.append(out)
 
     only_in_secondary = sum(
         1 for bc in secondary_index if bc not in matched_secondary
     )
 
+    column_order = (
+        primary_columns
+        + [SECONDARY_PREFIX + c for c in secondary_georef]
+        + [AGREEMENT_COLUMN, DISTANCE_COLUMN]
+    )
+
     return {
         "records": output_records,
+        "column_order": column_order,
         "summary": summarise(output_records),
         "primary_name": os.path.basename(primary_path),
         "secondary_name": os.path.basename(secondary_path),

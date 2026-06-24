@@ -105,9 +105,11 @@ def test_run_ensemble_categories_and_carry_forward(tmp_path):
     assert by_barcode["4"][ea.AGREEMENT_COLUMN] == ea.CATEGORY_NO_COMPARISON
     assert by_barcode["5"][ea.AGREEMENT_COLUMN] == ea.CATEGORY_NO_COMPARISON
 
-    # Primary values are carried forward, secondary coords kept for reference.
+    # Primary values are carried forward, secondary georef columns kept (prefixed).
     assert by_barcode["1"]["Locality verbatim"] == "A"
     assert by_barcode["1"][ea.SECONDARY_LAT_COLUMN] == 51.46
+    assert by_barcode["1"]["Secondary_Longitude"] == -2.59
+    assert by_barcode["5"][ea.SECONDARY_LAT_COLUMN] == ""  # only-in-primary -> blank
     assert by_barcode["4"][ea.DISTANCE_COLUMN] == ""  # no comparison -> blank
 
     summary = result["summary"]
@@ -116,6 +118,56 @@ def test_run_ensemble_categories_and_carry_forward(tmp_path):
     assert summary[ea.CATEGORY_LOW] == 0
     assert summary[ea.CATEGORY_NONE] == 1
     assert summary[ea.CATEGORY_NO_COMPARISON] == 2
+
+
+def test_column_order_and_secondary_georef_only(tmp_path):
+    primary = tmp_path / "p.csv"
+    secondary = tmp_path / "s.csv"
+
+    # Primary keeps its existing column order (incl. a non-georef input column).
+    _write_csv(
+        primary,
+        [{
+            "Barcode": "1",
+            "scientificName": "Aus bus",
+            "Latitude": "51.45",
+            "Longitude": "-2.59",
+            "Confidence": "high",
+        }],
+    )
+    # Secondary has a georef column (Latitude/Longitude/Confidence) plus a
+    # non-georef column (scientificName) that must NOT be carried.
+    _write_csv(
+        secondary,
+        [{
+            "Barcode": "1",
+            "scientificName": "Aus bus",
+            "Latitude": "51.46",
+            "Longitude": "-2.59",
+            "Confidence": "low",
+        }],
+    )
+
+    result = ea.run_ensemble(str(primary), str(secondary))
+
+    assert result["column_order"] == [
+        "Barcode", "scientificName", "Latitude", "Longitude", "Confidence",
+        "Secondary_Latitude", "Secondary_Longitude", "Secondary_Confidence",
+        ea.AGREEMENT_COLUMN, ea.DISTANCE_COLUMN,
+    ]
+
+    rec = result["records"][0]
+    # Secondary georef columns carried (prefixed); secondary non-georef dropped.
+    assert rec["Secondary_Confidence"] == "low"
+    assert "Secondary_scientificName" not in rec
+    assert "Secondary_Barcode" not in rec
+
+    # The CSV writer honours the explicit column order in the header.
+    raw = OutputFormatter.records_to_csv_bytes(
+        result["records"], column_order=result["column_order"]
+    )
+    header = raw.decode("utf-8-sig").splitlines()[0]
+    assert header == ",".join(result["column_order"])
 
 
 def test_summary_lists_every_category_including_zero():
