@@ -44,8 +44,7 @@
 
     var line = document.getElementById("release-line");
     if (line) {
-      line.textContent =
-        "No Python setup required. Latest version: " + tag + ".";
+      line.textContent = "Latest version: " + tag + ".";
     }
 
     var assets = data.assets || [];

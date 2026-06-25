@@ -1,6 +1,7 @@
 """Tests for batch result parsing and download output formatting."""
 
 import json
+import re
 
 from placebot.core.async_batch_processor import (
     _extract_gemini_text_from_dict,
@@ -83,8 +84,6 @@ def test_results_to_records_keeps_every_record_and_merges_source():
     assert recs[1]["Confidence"] == "low"
     assert "failed" in recs[1]["Processing_Notes"].lower()
 
-
-import re
 
 _CUSTOM_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}")
 

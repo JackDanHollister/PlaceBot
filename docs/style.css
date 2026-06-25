@@ -372,7 +372,7 @@ h1, h2, h3 { color: var(--ink); line-height: 1.2; }
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1.2rem;
-  margin: 2rem 0;
+  margin: 2rem auto;
 }
 .stat {
   background: #fff;
