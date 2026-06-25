@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlaceBot — AI-assisted georeferencing of locality data</title>
+  <meta name="description" content="PlaceBot is an open-source Python tool that turns free-text locality descriptions into standardised coordinates, an uncertainty radius, and a full geographic hierarchy using large language models." />
+  <link rel="icon" type="image/png" href="placebot_logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== Header / nav ===== -->
+  <header class="site-header">
+    <a class="brand" href="#top">
+      <img src="placebot_logo.png" alt="PlaceBot logo" width="36" height="36" />
+      <span>PlaceBot</span>
+    </a>
+    <nav class="nav-links">
+      <a href="#why">Why</a>
+      <a href="#install">Install</a>
+      <a href="#features">Features</a>
+      <a href="#quickstart">Quick start</a>
+      <a href="#videos">Tutorials</a>
+      <a href="#evidence">Evidence</a>
+      <a class="nav-cta" href="https://github.com/JackDanHollister/PlaceBot" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </header>
+
+  <!-- ===== Hero ===== -->
+  <section class="hero" id="top">
+    <img class="hero-logo" src="placebot_logo.png" alt="PlaceBot logo" width="170" height="170" />
+    <h1>PlaceBot</h1>
+    <p class="tagline">AI-assisted georeferencing of verbatim locality data.</p>
+    <p class="hero-sub">
+      Turn free-text locality descriptions — like those on natural-history specimen
+      labels — into standardised decimal coordinates, an uncertainty radius, and a
+      full geographic hierarchy. Open source, vendor-agnostic, and built to run at scale.
+    </p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="#install">Get started</a>
+      <a class="btn btn-secondary" href="https://github.com/JackDanHollister/PlaceBot/releases/latest" target="_blank" rel="noopener">Download latest release</a>
+    </div>
+    <div class="hero-meta">
+      <span class="pill"><span id="latest-version-pill">Latest release</span></span>
+      <span class="pill">MIT licensed</span>
+      <span class="pill">Python 3.8+</span>
+      <span class="pill">Windows · macOS · Linux</span>
+    </div>
+  </section>
+
+  <main>
+
+    <!-- ===== Why ===== -->
+    <section class="section" id="why">
+      <h2>Why PlaceBot exists</h2>
+      <div class="prose">
+        <p>
+          Hundreds of millions of biodiversity occurrence records carry only a
+          free-text description of <em>where</em> they were collected, not the
+          coordinates that research, distribution modelling and conservation policy
+          depend on. These records are historically rich but spatially unusable at
+          scale, and the backlog grows faster than institutions can clear it.
+        </p>
+        <p>
+          Manual georeferencing is accurate, but it is slow, costly, and inconsistent
+          between curators. PlaceBot tackles this bottleneck directly: it reads the
+          descriptive text and returns standardised coordinates with an explicit,
+          machine-readable estimate of how uncertain they are.
+        </p>
+        <p>
+          Crucially, PlaceBot does not treat an AI coordinate as a final answer. It
+          wraps large language models in a deterministic, auditable workflow and
+          flags exactly which records a human should check — turning georeferencing
+          from a per-record manual task into a scalable, cost-bounded, partly
+          automated one.
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== Install & current release ===== -->
+    <section class="section section-alt" id="install">
+      <h2>Install &amp; current release</h2>
+      <p class="section-lead">Two ways to install. Most people start with pip.</p>
+
+      <div class="card-grid">
+
+        <!-- pip card -->
+        <div class="card">
+          <h3>Install with pip</h3>
+          <p>Requires Python 3.8 or later.</p>
+          <div class="code-line">
+            <code id="pip-cmd">pip install placebot</code>
+            <button class="copy-btn" data-copy="pip install placebot" aria-label="Copy command">Copy</button>
+          </div>
+          <p>Then launch the browser-based interface:</p>
+          <div class="code-line">
+            <code>placebot-gui</code>
+            <button class="copy-btn" data-copy="placebot-gui" aria-label="Copy command">Copy</button>
+          </div>
+          <p class="muted">
+            Also available on <a href="https://pypi.org/project/placebot/" target="_blank" rel="noopener">PyPI</a>.
+            Prefer the terminal? Run <code>placebot</code> for the interactive CLI.
+          </p>
+        </div>
+
+        <!-- installer card -->
+        <div class="card card-highlight">
+          <h3>Desktop installers</h3>
+          <p>
+            No Python setup required. <span id="release-line">Download the latest release.</span>
+          </p>
+          <div class="download-btns">
+            <a class="btn btn-primary" id="download-windows" href="https://github.com/JackDanHollister/PlaceBot/releases/latest" target="_blank" rel="noopener">Windows installer (.exe)</a>
+            <a class="btn btn-primary" id="download-macos" href="https://github.com/JackDanHollister/PlaceBot/releases/latest" target="_blank" rel="noopener">macOS installer (.dmg)</a>
+          </div>
+          <p class="muted">
+            <a href="https://github.com/JackDanHollister/PlaceBot/releases/latest" target="_blank" rel="noopener">See all releases &amp; release notes ↗</a>
+          </p>
+          <p class="note">
+            Installers are unsigned, so first launch may show the normal Windows
+            SmartScreen or macOS Gatekeeper warning. On Windows you may need to
+            right-click the installer → <strong>Properties → Unblock</strong> before it runs.
+          </p>
+        </div>
+      </div>
+
+      <p class="callout callout-warn">
+        <strong>Watch your spend.</strong> A free API key suitable for testing can be
+        minted at <a href="https://aistudio.google.com/" target="_blank" rel="noopener">aistudio.google.com</a>
+        with a Google account. If you use a key linked to a payment method, set a
+        spend cap — large jobs can cost money quickly. Or run fully offline at no
+        cost with a local Ollama model.
+      </p>
+    </section>
+
+    <!-- ===== Features ===== -->
+    <section class="section" id="features">
+      <h2>What it does</h2>
+      <p class="section-lead">A deterministic, auditable workflow around the model — not a black box.</p>
+      <div class="feature-grid">
+        <div class="feature">
+          <h3>Vendor-agnostic</h3>
+          <p>Use Anthropic, OpenAI or Google models via API, OpenRouter for one-key multi-vendor routing, or local Ollama/Qwen models for fully offline, privacy-sensitive processing.</p>
+        </div>
+        <div class="feature">
+          <h3>Deterministic pre-screening</h3>
+          <p>Before any model call, PlaceBot detects existing coordinates, UK Ordnance Survey grid references, UTM and DMS values in Python and converts them — the model only interprets the residual descriptive text.</p>
+        </div>
+        <div class="feature">
+          <h3>Structured, transparent output</h3>
+          <p>Every record returns coordinates, a coordinate-source classification, categorical confidence, an uncertainty radius, a full geographic hierarchy, and processing notes documenting the reasoning.</p>
+        </div>
+        <div class="feature">
+          <h3>Cost control</h3>
+          <p>Prompt caching (up to ~90% savings) and asynchronous batch APIs (a further ~50%), with staggered batching and multi-key support for very large jobs.</p>
+        </div>
+        <div class="feature">
+          <h3>Native GBIF &amp; Darwin Core I/O</h3>
+          <p>Reads occurrence exports and Darwin Core files as-is — recognising terms like <code>verbatimLocality</code> and <code>decimalLatitude</code> — and can emit Darwin Core output. CSV, TSV, JSON and GeoJSON supported.</p>
+        </div>
+        <div class="feature">
+          <h3>Dedup &amp; reconstitute</h3>
+          <p><code>placebot-prep</code> georeferences each unique locality once; <code>placebot-expand</code> re-attaches the result to every record that shared it. You pay for and review one candidate per distinct place.</p>
+        </div>
+        <div class="feature">
+          <h3>Ensemble triage</h3>
+          <p>Run two strong models and let <code>placebot-ensemble</code> tag each record with an agreement category and the distance between estimates — so curators can filter straight to the records that need a human.</p>
+        </div>
+        <div class="feature">
+          <h3>Works offline</h3>
+          <p>With Ollama and a local model, the entire workflow runs on your machine with zero API spend — useful for sensitive data.</p>
+        </div>
+      </div>
+      <p class="section-foot">
+        Want the full detail? See the
+        <a href="https://github.com/JackDanHollister/PlaceBot#readme" target="_blank" rel="noopener">documentation on GitHub ↗</a>.
+      </p>
+    </section>
+
+    <!-- ===== Quick start ===== -->
+    <section class="section section-alt" id="quickstart">
+      <h2>Quick start</h2>
+      <p class="section-lead">Using the graphical interface — the easiest way in.</p>
+      <ol class="steps">
+        <li>
+          <h3>Install</h3>
+          <p>Run <code>pip install placebot</code>, or download a desktop installer above.</p>
+        </li>
+        <li>
+          <h3>Launch</h3>
+          <p>Run <code>placebot-gui</code> (or double-click the shortcut). PlaceBot opens in your web browser.</p>
+        </li>
+        <li>
+          <h3>Add a key</h3>
+          <p>Paste an API key into the sidebar (Anthropic, OpenAI, Google or OpenRouter). Keys are session-only unless you tick <em>Remember on this computer</em>. To run offline, install Ollama, pull a local model, and pick it under <em>Model source → Local Ollama</em>.</p>
+        </li>
+        <li>
+          <h3>Upload your data</h3>
+          <p>Upload a CSV or TSV with at least a record-identifier column and a locality-text column. A country column and any existing coordinates are optional but improve results. GBIF exports and Darwin Core files work as-is — no renaming.</p>
+        </li>
+        <li>
+          <h3>Choose a model</h3>
+          <p>Pick one from the comparison table. High-tier Gemini and GPT models gave the best accuracy in our benchmarks; low-tier models are cheaper and faster.</p>
+        </li>
+        <li>
+          <h3>Run</h3>
+          <p>Choose real-time (small jobs), batch (large jobs, ~50% cheaper) or staggered batch (very large jobs). Deduplication is on by default, so each unique place is processed once.</p>
+        </li>
+        <li>
+          <h3>Download results</h3>
+          <p>Results save to your output folder with one-click access. Tick <em>Use Darwin Core (DwC) output terms</em> for columns like <code>decimalLatitude</code> and <code>coordinateUncertaintyInMeters</code> ready for re-publishing.</p>
+        </li>
+      </ol>
+      <div class="callout callout-tip">
+        <strong>Recommended quality-control step.</strong> Run the same dataset through
+        two strong models, then run <code>placebot-ensemble</code> (also on the GUI's
+        <em>Ensemble analysis</em> page). PlaceBot tags each record with an agreement
+        category and the distance between estimates. Accept records where the models
+        agree closely; send disagreements for expert review.
+      </div>
+    </section>
+
+    <!-- ===== Tutorials / Videos ===== -->
+    <section class="section" id="videos">
+      <h2>Tutorials</h2>
+      <p class="section-lead">Walkthrough videos are on the way. They'll appear here, playable on the page.</p>
+
+      <!--
+        TO ADD A VIDEO:
+        Replace the contents of a `.video-embed` wrapper below with a YouTube or
+        Vimeo iframe, and update the caption. The wrapper keeps a responsive 16:9
+        aspect ratio automatically. Example (YouTube):
+
+        <div class="video-embed">
+          <iframe
+            src="https://www.youtube.com/embed/VIDEO_ID"
+            title="PlaceBot — getting started"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen></iframe>
+        </div>
+
+        Vimeo is the same idea: src="https://player.vimeo.com/video/VIDEO_ID".
+      -->
+
+      <div class="video-grid">
+        <figure class="video-card">
+          <div class="video-embed video-placeholder">
+            <span>▶ Video coming soon</span>
+          </div>
+          <figcaption>Getting started: install, add a key, and run your first dataset.</figcaption>
+        </figure>
+        <figure class="video-card">
+          <div class="video-embed video-placeholder">
+            <span>▶ Video coming soon</span>
+          </div>
+          <figcaption>Working with GBIF / Darwin Core data and exporting results.</figcaption>
+        </figure>
+        <figure class="video-card">
+          <div class="video-embed video-placeholder">
+            <span>▶ Video coming soon</span>
+          </div>
+          <figcaption>Quality control with ensemble agreement.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ===== Evidence ===== -->
+    <section class="section section-alt" id="evidence">
+      <h2>How reliable is it?</h2>
+      <div class="prose">
+        <p>
+          PlaceBot ships with a reproducible evaluation: 12 models from four
+          providers, benchmarked across two contrasting datasets — UK <em>Bombus</em>
+          localities and globally distributed <em>Odonata</em> type-specimen localities —
+          against manually curated reference coordinates. The benchmark datasets and
+          archived model-comparison outputs are included in the repository so anyone
+          can reproduce or extend the analysis.
+        </p>
+      </div>
+      <div class="stat-row">
+        <div class="stat">
+          <span class="stat-num">1.61 km</span>
+          <span class="stat-label">median error of the strongest model on the UK dataset (80% within 5 km)</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">5.83 km</span>
+          <span class="stat-label">median error on the harder, globally heterogeneous dataset</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">2 models</span>
+          <span class="stat-label">agreement between strong models is a robust reliability signal for triage</span>
+        </div>
+      </div>
+      <div class="prose">
+        <p>
+          Three findings shape responsible use. Performance varies sharply by model
+          and by locality complexity, so LLM coordinates should be treated as
+          probabilistic, not authoritative. Where two strong models converge, records
+          are far more likely to be close to truth — enabling a tiered workflow where
+          high-concordance outputs are accepted and discordant cases go to expert
+          review. And notably, reassessing divergent cases showed AI estimates
+          sometimes corrected errors in existing manual georeferences — so PlaceBot
+          can also quality-check legacy coordinates already in circulation.
+        </p>
+        <p class="muted">
+          PlaceBot complements careful single-record tools such as GBIF's GeoPick: it
+          triages and pre-processes large backlogs and flags exactly which records
+          warrant the human attention those tools provide.
+        </p>
+      </div>
+      <p class="section-foot">
+        Explore the
+        <a href="https://github.com/JackDanHollister/PlaceBot/tree/main/benchmarks" target="_blank" rel="noopener">benchmark datasets and results ↗</a>.
+      </p>
+    </section>
+
+  </main>
+
+  <!-- ===== Footer ===== -->
+  <footer class="site-footer">
+    <img src="placebot_logo.png" alt="PlaceBot logo" width="60" height="60" />
+    <div class="footer-links">
+      <a href="https://github.com/JackDanHollister/PlaceBot" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://pypi.org/project/placebot/" target="_blank" rel="noopener">PyPI</a>
+      <a href="https://github.com/JackDanHollister/PlaceBot/releases/latest" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/JackDanHollister/PlaceBot/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      <a href="https://github.com/JackDanHollister/PlaceBot#readme" target="_blank" rel="noopener">Documentation</a>
+    </div>
+    <p class="footer-note">PlaceBot is open-source software released under the MIT License.</p>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
