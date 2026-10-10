@@ -94,3 +94,6 @@ docs/_build/
 
 # Generated installer icons (built in CI from the logo)
 installer/assets/
+
+# Local consultation records
+consult/
